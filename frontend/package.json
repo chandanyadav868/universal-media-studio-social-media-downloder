@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "High-Performance Next.js Media Downloader with SEO & AdSense",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -17,5 +20,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.3.3"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
+    "@tailwindcss/oxide-linux-x64-musl": "^4.3.3"
   }
 }

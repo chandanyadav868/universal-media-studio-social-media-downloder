@@ -1,18 +1,17 @@
 # ===================================================================
 # Multi-Stage Production Dockerfile for Next.js on Coolify
-# Utilizing output: 'standalone' for minimal image size (~120MB)
+# Utilizing node:20-bookworm-slim for 100% native glibc binary compatibility
 # ===================================================================
 
 # Stage 1: Install dependencies
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci || npm install
+RUN npm install --include=optional
 
 # Stage 2: Build the application
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -28,7 +27,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 3: Production runner
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
