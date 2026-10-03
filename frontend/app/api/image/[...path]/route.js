@@ -1,10 +1,15 @@
 // Next.js Server-Side Streaming & Image API Proxy to Backend
 const getBackendBase = () => {
-  return (
-    process.env.BACKEND_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://127.0.0.1:5000"
-  ).replace(/\/$/, "");
+  if (process.env.BACKEND_URL) {
+    return process.env.BACKEND_URL.replace(/\/$/, "");
+  }
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/$/, "");
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io";
+  }
+  return "http://127.0.0.1:5000";
 };
 
 export async function GET(request, { params }) {

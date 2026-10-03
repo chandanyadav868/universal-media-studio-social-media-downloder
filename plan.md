@@ -1095,10 +1095,128 @@ Git Repository: universal-media-studio-social-media-downloder.git
    - **Exposed Port**: `3000`
 2. In Coolify ➔ **Environment Variables**:
    ```text
-   NEXT_PUBLIC_BACKEND_URL=http://<backend-domain>.sslip.io
+   BACKEND_URL=http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io
    ```
 3. In Coolify ➔ **Healthcheck**:
    - Path: `/api/health`
    - Port: `3000`
 4. Click **Actions** ➔ **Redeploy**.
+
+---
+
+## 19. Production Incident Report & Architectural Resolution: "Network connection failed (Failed to fetch)"
+
+### 19.1 Observation & Diagnostic Evidence
+From the three production screenshots provided:
+
+1. **Screenshot 1 (Frontend Error UI)**:
+   - **Page**: `http://uucxascnuxofjddkczw0snty.46.202.167.245.sslip.io`
+   - **Input**: `https://x.com/shuifenziya/status/2106090497391611992?s=20`
+   - **Error**: `Network connection failed (Failed to fetch). Ensure backend service is online.`
+2. **Screenshot 2 (Backend Live Health Check)**:
+   - **URL Tested**: `http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io/health`
+   - **Live JSON Response**:
+     ```json
+     {
+       "status": "ok",
+       "service": "Universal Media Studio Streaming Backend",
+       "system": {
+         "python": "Python 3.11.2",
+         "ytdlp": "2026.08.19",
+         "ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers",
+         "node": "v20.20.2",
+         "platform": "linux",
+         "arch": "x64"
+       },
+       "time": "2026-10-03T13:37:36.498Z"
+     }
+     ```
+   - **Confirmed**: Python 3.11.2, yt-dlp, FFmpeg, and Node.js v20 are **100% installed and healthy in production**!
+3. **Screenshot 3 (Coolify Deployment Dashboard)**:
+   - **Application**: `universal-media-studio-social-media-downloder:main-iiaalykol4aomu9xqz8nosxb`
+   - **State**: **Running** (Status: `Success`, Commit `4f2ab6f`, Healthcheck: `healthy`, Exit: 0).
+
+---
+
+### 19.2 Deep-Dive Root Cause: Why Did the Browser Say "Backend Not Online"?
+
+Even though the backend container is healthy and responding, the browser failed to fetch because of a **client-side bundle environment variable mismatch**:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User Browser (Client)
+    participant NextClient as Next.js Client Bundle
+    participant DeadDomain as "https://your-backend-domain.com" (Invalid Placeholder)
+    participant RealBackend as "http://ylpdqmjorj1...sslip.io" (Live Backend)
+
+    User->>NextClient: Enters X.com URL & Clicks "Extract Images"
+    Note over NextClient: Reads NEXT_PUBLIC_BACKEND_URL baked at build time from .env.production
+    NextClient-->>DeadDomain: fetch("https://your-backend-domain.com/api/image/info")
+    DeadDomain--xNextClient: DNS Resolution Failure (Failed to fetch)
+    NextClient->>User: Displays "Network connection failed (Failed to fetch). Ensure backend service is online."
+    Note over RealBackend: Never received any request!
+```
+
+#### Detailed Failure Points:
+1. **The `.env.production` Placeholder Trap**:
+   In `frontend/.env.production`, line 2 contained:
+   ```env
+   NEXT_PUBLIC_BACKEND_URL=https://your-backend-domain.com
+   ```
+2. **Next.js Build-Time Inlining**:
+   Next.js compiles any variable prefixed with `NEXT_PUBLIC_` directly into client JavaScript chunks during `npm run build`. 
+   Because `frontend/.env.production` had `https://your-backend-domain.com`, the user's browser attempted to make network requests to a non-existent placeholder domain.
+3. **Cross-Origin / Mixed-Content Risks**:
+   Having the client browser make direct cross-origin calls to the backend IP/domain exposes requests to:
+   - Browser CORS blocks.
+   - Mixed content blocks (if Frontend is HTTPS and Backend is HTTP).
+   - Local network restrictions on client devices.
+
+---
+
+### 19.3 The Architectural Fix: Server-Side Reverse Proxying (BFF Pattern)
+
+To permanently eliminate this failure class, we implement the **Backend-For-Frontend (BFF) Server Proxy Pattern**:
+
+```mermaid
+flowchart LR
+    subgraph Browser["User Browser (Mobile / Desktop)"]
+        UI["React Client UI\nAlways calls relative: /api/media/... or /api/image/..."]
+    end
+
+    subgraph NextServer["Next.js Production Container (Port 3000)"]
+        Proxy["App Router Catch-All Server Proxies\n(/api/media/[...path] & /api/image/[...path])\nReads BACKEND_URL dynamically at runtime!"]
+    end
+
+    subgraph BackendServer["Node.js Streaming Backend Container (Port 5000)"]
+        Engine["Zero-Disk Streaming Engine\n(yt-dlp, Python 3.11, FFmpeg)"]
+    end
+
+    UI -->|"Same-Origin Request (Zero CORS, Zero DNS failures)"| Proxy
+    Proxy -->|"Internal Cloud / Server-to-Server HTTP"| Engine
+```
+
+#### Key Architecture Benefits:
+1. **Zero Client Environment Inlining**:
+   The client browser **always** calls relative paths (`/api/media/info`, `/api/image/info`, `/api/media/stream`, `/api/image/download`).
+2. **Zero CORS & Zero Mixed-Content**:
+   Because the browser only speaks to its own origin (`http://uucxascnuxofjddkczw0snty.46.202.167.245.sslip.io`), there are no cross-origin errors or browser blocking.
+3. **Server-Side Resilience & Fallbacks**:
+   The Next.js server proxies requests using `process.env.BACKEND_URL`, with an automatic fallback to the verified active backend (`http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io`).
+4. **Clean Error Handling**:
+   If the backend is ever offline, the server proxy catches the error and returns formatted JSON rather than an HTML 502/404 page, preventing `Unexpected token '<'` crashes.
+
+---
+
+### 19.4 Implementation Checklist & Verification
+
+| File | Change | Purpose |
+| :--- | :--- | :--- |
+| `frontend/.env.production` | Remove placeholder `https://your-backend-domain.com` | Prevents invalid domain baking |
+| `frontend/lib/api.js` | Force `getApiBase()` to `""` in client browser | Guarantees same-origin proxying |
+| `frontend/app/api/media/[...path]/route.js` | Add fallback to `http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io` | Zero-configuration server proxy |
+| `frontend/app/api/image/[...path]/route.js` | Add fallback to `http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io` | Zero-configuration server proxy |
+| `backend/src/server.js` | Dynamic system diagnostics (`/health` & `/api/system/status`) | Live verification of Python 3.11 & yt-dlp |
+
 

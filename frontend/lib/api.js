@@ -4,7 +4,14 @@
  */
 
 export function getApiBase() {
-  const customBackend = process.env.NEXT_PUBLIC_BACKEND_URL;
+  // In the browser, ALWAYS use same-origin relative paths to route via Next.js server proxy.
+  // This guarantees zero CORS errors, zero DNS resolution failures, and zero mixed-content blocks!
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  // Server-side fallback
+  const customBackend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
   if (customBackend && typeof customBackend === "string" && customBackend.trim().startsWith("http")) {
     return customBackend.trim().replace(/\/$/, "");
   }
