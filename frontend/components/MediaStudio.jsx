@@ -7,6 +7,7 @@ import AdBanner from "./AdBanner";
 import PlatformFeatureHeader from "./PlatformFeatureHeader";
 import ImageStudio from "./ImageStudio";
 import { getFeatureConfig, FEATURE_MAP } from "../lib/featureMap";
+import { safeFetchJson, buildStreamUrl } from "../lib/api";
 import { Search, Clipboard, X, Loader2, Sparkles, ShieldCheck, Zap, Film, CheckCircle2 } from "lucide-react";
 
 export default function MediaStudio() {
@@ -69,13 +70,12 @@ export default function MediaStudio() {
     setMediaData(null);
 
     try {
-      const res = await fetch("/api/media/info", {
+      const json = await safeFetchJson("/api/media/info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),
       });
 
-      const json = await res.json();
       if (!json.success) {
         throw new Error(json.error || "Failed to inspect video details.");
       }
@@ -90,14 +90,12 @@ export default function MediaStudio() {
 
   const handleDownloadClick = (format) => {
     setSelectedFormat(format);
-    const params = new URLSearchParams({
+    const streamUrl = buildStreamUrl({
       url: mediaData.originalUrl,
       formatSelector: format.formatId,
       mediaType: format.ext === "mp3" ? "audio" : "video",
       title: mediaData.title || "video",
     });
-
-    const streamUrl = `/api/media/stream?${params.toString()}`;
     setDownloadStreamUrl(streamUrl);
     setModalOpen(true);
   };

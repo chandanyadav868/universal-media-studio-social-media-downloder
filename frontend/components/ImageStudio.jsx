@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import AdBanner from "./AdBanner";
 import PlatformFeatureHeader from "./PlatformFeatureHeader";
 import { getFeatureConfig, FEATURE_MAP } from "../lib/featureMap";
+import { safeFetchJson, buildImageDownloadUrl } from "../lib/api";
 import { 
   Search, Clipboard, X, Loader2, Sparkles, Image as ImageIcon, 
   Download, ExternalLink, ShieldCheck, Zap, Layers 
@@ -69,13 +70,12 @@ export default function ImageStudio({ activeFeature: propFeature, onSelectHash: 
     setImageData(null);
 
     try {
-      const res = await fetch("/api/image/info", {
+      const json = await safeFetchJson("/api/image/info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),
       });
 
-      const json = await res.json();
       if (!json.success) {
         throw new Error(json.error || "Failed to extract image assets.");
       }
@@ -90,7 +90,10 @@ export default function ImageStudio({ activeFeature: propFeature, onSelectHash: 
 
   const handleDownloadImage = (img) => {
     setDownloadingId(img.id);
-    const proxyUrl = `/api/image/download?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(img.filename || "image.jpg")}`;
+    const proxyUrl = buildImageDownloadUrl({
+      url: img.url,
+      filename: img.filename || "image.jpg",
+    });
     
     const link = document.createElement("a");
     link.href = proxyUrl;
@@ -116,7 +119,7 @@ export default function ImageStudio({ activeFeature: propFeature, onSelectHash: 
   const getImagePreviewSrc = (rawImgUrl) => {
     if (!rawImgUrl) return "";
     if (rawImgUrl.includes("lookaside.fbsbx.com") || rawImgUrl.includes("facebook.com")) {
-      return `/api/image/download?url=${encodeURIComponent(rawImgUrl)}&view=1`;
+      return buildImageDownloadUrl({ url: rawImgUrl, view: "1" });
     }
     return rawImgUrl;
   };

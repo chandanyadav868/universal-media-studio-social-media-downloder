@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { execSync } from "child_process";
 import { inspectMediaUrl, streamMediaDirect } from "./services/zeroDiskStreamService.js";
 import { inspectMediaImages, proxyImageStream } from "./services/imageDownloaderService.js";
 
@@ -63,13 +64,54 @@ app.use(
 
 app.use(express.json());
 
+// Helper function to query installed binaries in production
+const getSystemDiagnostics = () => {
+  const runCmd = (cmd) => {
+    try {
+      return execSync(cmd, { timeout: 3000, stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .trim();
+    } catch (e) {
+      return `Unavailable (${e.message})`;
+    }
+  };
+
+  return {
+    python: runCmd("python3 --version") || runCmd("python --version"),
+    ytdlp: runCmd("yt-dlp --version"),
+    ffmpeg: runCmd("ffmpeg -version")?.split("\n")[0] || "Unavailable",
+    node: process.version,
+    platform: process.platform,
+    arch: process.arch,
+  };
+};
+
 // Health Check & Root Status
 app.get("/", (req, res) => {
-  res.json({ status: "ok", service: "Universal Media Studio Streaming Backend", time: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    service: "Universal Media Studio Streaming Backend",
+    system: getSystemDiagnostics(),
+    time: new Date().toISOString(),
+  });
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "Universal Media Studio Streaming Backend", time: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    service: "Universal Media Studio Streaming Backend",
+    system: getSystemDiagnostics(),
+    time: new Date().toISOString(),
+  });
+});
+
+app.get("/api/system/status", (req, res) => {
+  res.json({
+    status: "ok",
+    system: getSystemDiagnostics(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    time: new Date().toISOString(),
+  });
 });
 
 /**
