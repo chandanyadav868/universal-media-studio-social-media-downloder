@@ -1,10 +1,10 @@
-# Nixpacks configuration for Coolify
+# Nixpacks configuration for Coolify Next.js deployment
 [variables]
 NIXPACKS_NODE_VERSION = "20"
 NODE_VERSION = "20"
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = ["npm install --include=optional"]
@@ -13,4 +13,4 @@ cmds = ["npm install --include=optional"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node .next/standalone/server.js"
+cmd = "npm run start"
