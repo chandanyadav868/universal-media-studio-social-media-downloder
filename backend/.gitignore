@@ -1,0 +1,18 @@
+# Dependencies
+/node_modules/
+
+# Environment files
+.env
+.env.local
+
+# Logs
+npm-debug.log*
+*.log
+
+# Temporary / OS
+.DS_Store
+temp/
+tmp/
+*.mp4
+*.mp3
+*.part
