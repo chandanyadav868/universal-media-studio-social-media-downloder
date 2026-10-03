@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { execSync } from "child_process";
 import { inspectMediaUrl, streamMediaDirect } from "./services/zeroDiskStreamService.js";
 import { inspectMediaImages, proxyImageStream } from "./services/imageDownloaderService.js";
+import { acquireStreamSlot, releaseStreamSlot, getQueueStatus } from "./services/streamQueueService.js";
 
 dotenv.config();
 
@@ -22,6 +23,11 @@ const isOriginAllowed = (origin) => {
   if (!origin) return true; // Allow non-browser requests (server-to-server, curl, mobile apps)
   if (allowedOrigins.includes("*")) return true;
   if (allowedOrigins.includes(origin)) return true;
+
+  // Automatically whitelist humantalking.com apex and all subdomains
+  if (origin.endsWith("humantalking.com") || origin.includes(".humantalking.com")) {
+    return true;
+  }
 
   // Local development fallback
   if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
@@ -145,10 +151,22 @@ app.post("/api/media/info", async (req, res) => {
 });
 
 /**
+ * GET /api/media/queue-status
+ * Live queue monitoring for high-concurrency traffic
+ */
+app.get("/api/media/queue-status", (req, res) => {
+  res.json({ success: true, ...getQueueStatus() });
+});
+
+/**
  * GET /api/media/stream
  * Streams file directly into browser attachment with ZERO disk writes!
+ * Concurrency-protected by FIFO queue semaphore to prevent 1-core VPS overload.
  */
 app.get("/api/media/stream", async (req, res) => {
+  let slotAcquired = false;
+  let activeTicketId = null;
+
   try {
     const { url, formatSelector, mediaType, title } = req.query;
 
@@ -156,11 +174,32 @@ app.get("/api/media/stream", async (req, res) => {
       return res.status(400).send("Missing URL parameter.");
     }
 
+    // Acquire stream concurrency slot (queues user if 3 active streams running)
+    const slot = await acquireStreamSlot();
+    slotAcquired = true;
+    activeTicketId = slot.ticketId;
+    res.setHeader("X-Stream-Ticket", activeTicketId);
+
+    // Release slot as soon as client closes connection or stream finishes
+    res.on("close", () => {
+      if (slotAcquired) {
+        releaseStreamSlot(activeTicketId);
+        slotAcquired = false;
+      }
+    });
+
     await streamMediaDirect(url, formatSelector, mediaType, title, res);
   } catch (error) {
+    if (slotAcquired) {
+      releaseStreamSlot(activeTicketId);
+      slotAcquired = false;
+    }
     console.error("[Backend] Stream error:", error);
     if (!res.headersSent) {
-      res.status(500).send("Streaming failed.");
+      res.status(503).json({
+        success: false,
+        error: error.message || "Streaming failed due to queue congestion.",
+      });
     }
   }
 });
