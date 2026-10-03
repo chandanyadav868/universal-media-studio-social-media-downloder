@@ -62,9 +62,13 @@ app.use(
 
 app.use(express.json());
 
-// Health Check
+// Health Check & Root Status
+app.get("/", (req, res) => {
+  res.json({ status: "ok", service: "Universal Media Studio Streaming Backend", time: new Date().toISOString() });
+});
+
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "Universal Media Studio Streaming Backend" });
+  res.json({ status: "ok", service: "Universal Media Studio Streaming Backend", time: new Date().toISOString() });
 });
 
 /**
@@ -169,10 +173,12 @@ app.get("/api/image/download", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`====================================================`);
-  console.log(`🚀 Zero-Disk Streaming Backend running on Port ${PORT}`);
-  console.log(`   - Info API:   POST http://localhost:${PORT}/api/media/info`);
-  console.log(`   - Stream API: GET  http://localhost:${PORT}/api/media/stream`);
+  console.log(`🚀 Zero-Disk Streaming Backend running on Port ${PORT} (0.0.0.0)`);
+  console.log(`   - Root API:   GET  http://0.0.0.0:${PORT}/`);
+  console.log(`   - Health API: GET  http://0.0.0.0:${PORT}/health`);
+  console.log(`   - Info API:   POST http://0.0.0.0:${PORT}/api/media/info`);
+  console.log(`   - Stream API: GET  http://0.0.0.0:${PORT}/api/media/stream`);
   console.log(`====================================================`);
 });
