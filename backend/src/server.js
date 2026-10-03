@@ -7,7 +7,8 @@ import { inspectMediaImages, proxyImageStream } from "./services/imageDownloader
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const rawPort = String(process.env.PORT || "5000").replace(/[^0-9]/g, "");
+const PORT = Number.parseInt(rawPort, 10) || 5000;
 
 // Dynamic CORS configuration with robust whitelist support
 const rawOrigins = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS || "*";

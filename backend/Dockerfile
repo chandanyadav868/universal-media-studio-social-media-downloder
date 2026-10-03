@@ -32,7 +32,7 @@ ENV NODE_ENV=production
 
 EXPOSE 5000
 
-HEALTHCHECK --interval=20s --timeout=5s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://127.0.0.1:5000/health || exit 1
 
 CMD ["node", "src/server.js"]
