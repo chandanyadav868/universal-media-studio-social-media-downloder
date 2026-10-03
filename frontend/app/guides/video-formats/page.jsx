@@ -13,7 +13,7 @@ export const metadata = {
     "why webm has no sound"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/guides/video-formats",
+    canonical: "https://socialmediadownloader.humantalking.com/guides/video-formats",
   },
 };
 
@@ -39,9 +39,9 @@ export default function VideoFormatsGuidePage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://yourdomain.com/guides" },
-          { "@type": "ListItem", "position": 3, "name": "Video Formats Guide", "item": "https://yourdomain.com/guides/video-formats" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://socialmediadownloader.humantalking.com/guides" },
+          { "@type": "ListItem", "position": 3, "name": "Video Formats Guide", "item": "https://socialmediadownloader.humantalking.com/guides/video-formats" }
         ]
       }
     ]

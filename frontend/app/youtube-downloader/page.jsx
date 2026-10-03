@@ -14,13 +14,13 @@ export const metadata = {
   openGraph: {
     title: "YouTube Video Downloader — 1080p, 4K & MP3 Free",
     description: "Download YouTube videos and Shorts in 1080p Full HD with audio. Zero-disk streaming, 100% free.",
-    url: "https://yourdomain.com/youtube-downloader",
+    url: "https://socialmediadownloader.humantalking.com/youtube-downloader",
     siteName: "Universal Media Studio",
     locale: "en_US",
     type: "website",
   },
   alternates: {
-    canonical: "https://yourdomain.com/youtube-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/youtube-downloader",
   },
 };
 
@@ -29,7 +29,7 @@ export default function YouTubeDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "YouTube Video Downloader",
-    "url": "https://yourdomain.com/youtube-downloader",
+    "url": "https://socialmediadownloader.humantalking.com/youtube-downloader",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "offers": {

@@ -14,7 +14,7 @@ export const metadata = {
     "youtube thumbnail grabber"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/platforms/youtube",
+    canonical: "https://socialmediadownloader.humantalking.com/platforms/youtube",
   },
 };
 
@@ -36,9 +36,9 @@ export default function YouTubePlatformPage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Platforms", "item": "https://yourdomain.com/platforms" },
-          { "@type": "ListItem", "position": 3, "name": "YouTube Downloader", "item": "https://yourdomain.com/platforms/youtube" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Platforms", "item": "https://socialmediadownloader.humantalking.com/platforms" },
+          { "@type": "ListItem", "position": 3, "name": "YouTube Downloader", "item": "https://socialmediadownloader.humantalking.com/platforms/youtube" }
         ]
       },
       {

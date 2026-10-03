@@ -14,7 +14,7 @@ export const metadata = {
     "universal media downloader"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/tools/video-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/tools/video-downloader",
   },
 };
 
@@ -36,9 +36,9 @@ export default function VideoDownloaderToolPage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Tools", "item": "https://yourdomain.com/tools" },
-          { "@type": "ListItem", "position": 3, "name": "Video Downloader", "item": "https://yourdomain.com/tools/video-downloader" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Tools", "item": "https://socialmediadownloader.humantalking.com/tools" },
+          { "@type": "ListItem", "position": 3, "name": "Video Downloader", "item": "https://socialmediadownloader.humantalking.com/tools/video-downloader" }
         ]
       }
     ]

@@ -14,7 +14,7 @@ export const metadata = {
     "facebook photo downloader"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/platforms/facebook",
+    canonical: "https://socialmediadownloader.humantalking.com/platforms/facebook",
   },
 };
 
@@ -36,9 +36,9 @@ export default function FacebookPlatformPage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Platforms", "item": "https://yourdomain.com/platforms" },
-          { "@type": "ListItem", "position": 3, "name": "Facebook Downloader", "item": "https://yourdomain.com/platforms/facebook" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Platforms", "item": "https://socialmediadownloader.humantalking.com/platforms" },
+          { "@type": "ListItem", "position": 3, "name": "Facebook Downloader", "item": "https://socialmediadownloader.humantalking.com/platforms/facebook" }
         ]
       }
     ]

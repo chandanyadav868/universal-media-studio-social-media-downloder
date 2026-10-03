@@ -2,10 +2,13 @@ import Script from "next/script";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import MediaMarquee from "../components/MediaMarquee";
+import CookieConsent from "../components/CookieConsent";
 import "./globals.css";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://socialmediadownloader.humantalking.com";
+
 export const metadata = {
-  metadataBase: new URL("https://yourdomain.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Universal Media Studio — Zero-Disk 4K Video, Audio & Image Downloader",
     template: "%s | Universal Media Studio"
@@ -40,7 +43,7 @@ export const metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://yourdomain.com",
+    url: SITE_URL,
     siteName: "Universal Media Studio",
     title: "Universal Media Studio — Zero-Disk Media Downloader",
     description: "Stream and download 1080p/4K videos, audio, and high-res photos directly in your browser with 0% compression.",
@@ -49,6 +52,9 @@ export const metadata = {
     card: "summary_large_image",
     title: "Universal Media Studio — Zero-Disk Media Downloader",
     description: "Free high-speed 1080p video, audio, and photo downloader for YouTube, Instagram, Facebook, and TikTok.",
+  },
+  alternates: {
+    canonical: SITE_URL,
   },
 };
 
@@ -63,7 +69,7 @@ export default function RootLayout({ children }) {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Universal Media Studio",
-    "url": "https://yourdomain.com",
+    "url": SITE_URL,
     "description": "Fast and free zero-disk media downloader for YouTube, Instagram Reels, Facebook, TikTok, X (Twitter), and High-Res Images.",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
@@ -75,14 +81,18 @@ export default function RootLayout({ children }) {
   };
 
   return (
-    <html lang="en">
+    <html lang="en" dir="ltr">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="anonymous" />
+
         <Script
           id="adsense-init"
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
 
         <script
@@ -106,6 +116,9 @@ export default function RootLayout({ children }) {
 
         {/* Comprehensive AdSense-Approved & SEO Compliant Footer */}
         <Footer />
+
+        {/* Non-Intrusive GDPR & AdSense Compliant Cookie Consent */}
+        <CookieConsent />
       </body>
     </html>
   );

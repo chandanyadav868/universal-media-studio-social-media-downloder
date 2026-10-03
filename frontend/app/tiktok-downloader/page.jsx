@@ -14,13 +14,13 @@ export const metadata = {
   openGraph: {
     title: "TikTok Downloader Without Watermark — HD MP4 Free",
     description: "Download TikTok videos without watermark in original HD with sound. Zero-disk streaming.",
-    url: "https://yourdomain.com/tiktok-downloader",
+    url: "https://socialmediadownloader.humantalking.com/tiktok-downloader",
     siteName: "Universal Media Studio",
     locale: "en_US",
     type: "website",
   },
   alternates: {
-    canonical: "https://yourdomain.com/tiktok-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/tiktok-downloader",
   },
 };
 
@@ -29,7 +29,7 @@ export default function TikTokDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "TikTok Downloader Without Watermark",
-    "url": "https://yourdomain.com/tiktok-downloader",
+    "url": "https://socialmediadownloader.humantalking.com/tiktok-downloader",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "offers": {

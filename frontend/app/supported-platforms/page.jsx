@@ -12,7 +12,7 @@ export const metadata = {
     "youtube facebook instagram tiktok compatibility"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/supported-platforms",
+    canonical: "https://socialmediadownloader.humantalking.com/supported-platforms",
   },
 };
 

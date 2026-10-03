@@ -14,7 +14,7 @@ export const metadata = {
     "download instagram carousel"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/platforms/instagram",
+    canonical: "https://socialmediadownloader.humantalking.com/platforms/instagram",
   },
 };
 
@@ -36,9 +36,9 @@ export default function InstagramPlatformPage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Platforms", "item": "https://yourdomain.com/platforms" },
-          { "@type": "ListItem", "position": 3, "name": "Instagram Downloader", "item": "https://yourdomain.com/platforms/instagram" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Platforms", "item": "https://socialmediadownloader.humantalking.com/platforms" },
+          { "@type": "ListItem", "position": 3, "name": "Instagram Downloader", "item": "https://socialmediadownloader.humantalking.com/platforms/instagram" }
         ]
       }
     ]

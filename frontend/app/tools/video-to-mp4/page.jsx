@@ -13,7 +13,7 @@ export const metadata = {
     "save video as mp4 hd"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/tools/video-to-mp4",
+    canonical: "https://socialmediadownloader.humantalking.com/tools/video-to-mp4",
   },
 };
 
@@ -35,9 +35,9 @@ export default function VideoToMp4ToolPage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Tools", "item": "https://yourdomain.com/tools" },
-          { "@type": "ListItem", "position": 3, "name": "Video to MP4", "item": "https://yourdomain.com/tools/video-to-mp4" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Tools", "item": "https://socialmediadownloader.humantalking.com/tools" },
+          { "@type": "ListItem", "position": 3, "name": "Video to MP4", "item": "https://socialmediadownloader.humantalking.com/tools/video-to-mp4" }
         ]
       }
     ]

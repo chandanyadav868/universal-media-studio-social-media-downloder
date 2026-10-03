@@ -14,13 +14,13 @@ export const metadata = {
   openGraph: {
     title: "HD Thumbnail & Image Post Downloader — Free",
     description: "Download MaxRes YouTube thumbnails and high-res social media post photos. 100% free.",
-    url: "https://yourdomain.com/thumbnail-downloader",
+    url: "https://socialmediadownloader.humantalking.com/thumbnail-downloader",
     siteName: "Universal Media Studio",
     locale: "en_US",
     type: "website",
   },
   alternates: {
-    canonical: "https://yourdomain.com/thumbnail-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/thumbnail-downloader",
   },
 };
 
@@ -29,7 +29,7 @@ export default function ThumbnailDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "HD Thumbnail & Image Downloader",
-    "url": "https://yourdomain.com/thumbnail-downloader",
+    "url": "https://socialmediadownloader.humantalking.com/thumbnail-downloader",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "offers": {

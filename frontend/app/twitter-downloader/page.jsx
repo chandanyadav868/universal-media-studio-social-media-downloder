@@ -14,13 +14,13 @@ export const metadata = {
   openGraph: {
     title: "Twitter / X Video Downloader — HD MP4 Free",
     description: "Download Twitter / X videos in HD with sound. Zero-disk streaming.",
-    url: "https://yourdomain.com/twitter-downloader",
+    url: "https://socialmediadownloader.humantalking.com/twitter-downloader",
     siteName: "Universal Media Studio",
     locale: "en_US",
     type: "website",
   },
   alternates: {
-    canonical: "https://yourdomain.com/twitter-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/twitter-downloader",
   },
 };
 
@@ -29,7 +29,7 @@ export default function TwitterDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Twitter / X Video Downloader",
-    "url": "https://yourdomain.com/twitter-downloader",
+    "url": "https://socialmediadownloader.humantalking.com/twitter-downloader",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "offers": {

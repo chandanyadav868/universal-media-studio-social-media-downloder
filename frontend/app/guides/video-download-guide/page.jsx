@@ -12,7 +12,7 @@ export const metadata = {
     "video downloader tutorial"
   ],
   alternates: {
-    canonical: "https://yourdomain.com/guides/video-download-guide",
+    canonical: "https://socialmediadownloader.humantalking.com/guides/video-download-guide",
   },
 };
 
@@ -38,9 +38,9 @@ export default function VideoDownloadGuidePage() {
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com" },
-          { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://yourdomain.com/guides" },
-          { "@type": "ListItem", "position": 3, "name": "Video Download Guide", "item": "https://yourdomain.com/guides/video-download-guide" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://socialmediadownloader.humantalking.com" },
+          { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://socialmediadownloader.humantalking.com/guides" },
+          { "@type": "ListItem", "position": 3, "name": "Video Download Guide", "item": "https://socialmediadownloader.humantalking.com/guides/video-download-guide" }
         ]
       }
     ]

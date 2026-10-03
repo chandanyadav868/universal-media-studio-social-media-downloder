@@ -14,13 +14,13 @@ export const metadata = {
   openGraph: {
     title: "Instagram Downloader — Reels, Videos & Photos Free",
     description: "Download Instagram Reels and Videos in original HD with crystal-clear audio. Fast and zero-disk streaming.",
-    url: "https://yourdomain.com/instagram-downloader",
+    url: "https://socialmediadownloader.humantalking.com/instagram-downloader",
     siteName: "Universal Media Studio",
     locale: "en_US",
     type: "website",
   },
   alternates: {
-    canonical: "https://yourdomain.com/instagram-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/instagram-downloader",
   },
 };
 
@@ -29,7 +29,7 @@ export default function InstagramDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Instagram Downloader",
-    "url": "https://yourdomain.com/instagram-downloader",
+    "url": "https://socialmediadownloader.humantalking.com/instagram-downloader",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "offers": {

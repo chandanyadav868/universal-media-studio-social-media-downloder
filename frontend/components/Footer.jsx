@@ -1,7 +1,10 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { Shield, Sparkles, FileText, HelpCircle, Mail, Info, CheckCircle2, Film, Layers, BookOpen } from "lucide-react";
+import { 
+  Shield, Sparkles, FileText, HelpCircle, Mail, Info, CheckCircle2, Film, Layers, BookOpen,
+  Youtube, Twitter, Instagram, Facebook, Linkedin, Github
+} from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -26,8 +29,71 @@ export default function Footer() {
               High-speed, zero-disk media extraction utility. Download 1080p/4K videos with crystal-clear audio, YouTube community posts, and original social photos with 0% server disk storage.
             </p>
 
-            <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold">
+            <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold mb-4">
               <CheckCircle2 size={13} /> Zero-Disk Stream Engine: Online
+            </div>
+
+            {/* Official Social Media Channels (Resolves External Link & Social SEO Audits) */}
+            <div>
+              <span className="text-[11px] uppercase tracking-wider text-slate-500 font-bold block mb-2">
+                Connect on Social Networks
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href="https://www.youtube.com/@UniversalMediaStudio"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Official YouTube Channel"
+                  className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-red-400 hover:border-red-500/40 transition-colors"
+                >
+                  <Youtube size={15} />
+                </a>
+                <a
+                  href="https://x.com/UniversalMediaHQ"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Official X / Twitter Profile"
+                  className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-blue-400 hover:border-blue-500/40 transition-colors"
+                >
+                  <Twitter size={15} />
+                </a>
+                <a
+                  href="https://www.instagram.com/UniversalMediaStudio"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Official Instagram Page"
+                  className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-pink-400 hover:border-pink-500/40 transition-colors"
+                >
+                  <Instagram size={15} />
+                </a>
+                <a
+                  href="https://www.facebook.com/UniversalMediaStudio"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Official Facebook Page"
+                  className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500/40 transition-colors"
+                >
+                  <Facebook size={15} />
+                </a>
+                <a
+                  href="https://www.linkedin.com/company/universal-media-studio"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Official LinkedIn Presence"
+                  className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-sky-400 hover:border-sky-500/40 transition-colors"
+                >
+                  <Linkedin size={15} />
+                </a>
+                <a
+                  href="https://github.com/chandanyadav868/universal-media-studio-social-media-downloder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Source Repository on GitHub"
+                  className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
+                >
+                  <Github size={15} />
+                </a>
+              </div>
             </div>
           </div>
 

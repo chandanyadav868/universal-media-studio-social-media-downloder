@@ -14,13 +14,13 @@ export const metadata = {
   openGraph: {
     title: "Facebook Video Downloader — HD MP4 Free",
     description: "Download Facebook videos and Reels in Full HD with audio. Zero-disk streaming.",
-    url: "https://yourdomain.com/facebook-downloader",
+    url: "https://socialmediadownloader.humantalking.com/facebook-downloader",
     siteName: "Universal Media Studio",
     locale: "en_US",
     type: "website",
   },
   alternates: {
-    canonical: "https://yourdomain.com/facebook-downloader",
+    canonical: "https://socialmediadownloader.humantalking.com/facebook-downloader",
   },
 };
 
@@ -29,7 +29,7 @@ export default function FacebookDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Facebook Video Downloader",
-    "url": "https://yourdomain.com/facebook-downloader",
+    "url": "https://socialmediadownloader.humantalking.com/facebook-downloader",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "offers": {
