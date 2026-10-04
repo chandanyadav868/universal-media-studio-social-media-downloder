@@ -71,7 +71,7 @@ export default function AdBanner({
           textAlign: "center",
           minHeight: isRectangle ? "250px" : "60px",
         }}
-        data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+        data-ad-client="ca-pub-1412205696232927"
         data-ad-slot={slot}
         data-ad-format={isRectangle ? "rectangle" : "auto"}
         data-full-width-responsive="true"

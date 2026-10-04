@@ -87,10 +87,12 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="anonymous" />
 
+        <meta name="google-adsense-account" content="ca-pub-1412205696232927" />
+
         <Script
           id="adsense-init"
           async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1412205696232927"
           crossOrigin="anonymous"
           strategy="lazyOnload"
         />
