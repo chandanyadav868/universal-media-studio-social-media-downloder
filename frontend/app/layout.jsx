@@ -81,7 +81,7 @@ export default function RootLayout({ children }) {
   };
 
   return (
-    <html lang="en" dir="ltr">
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -116,7 +116,7 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="min-h-screen flex flex-col bg-[#080c15] text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white">
+      <body suppressHydrationWarning className="min-h-screen flex flex-col bg-[#080c15] text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white">
         {/* Dynamic Route-Aware Navigation Bar */}
         <Navbar />
 

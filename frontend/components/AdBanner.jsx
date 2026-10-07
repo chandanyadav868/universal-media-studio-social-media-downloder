@@ -1,73 +1,84 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { Megaphone, Sparkles } from "lucide-react";
+import { Sparkles, ExternalLink } from "lucide-react";
 
 export default function AdBanner({ 
   slot = "1234567890", 
   format = "auto", 
-  label = "Sponsored Advertisement" 
+  label = "Sponsored Recommendation" 
 }) {
-  const [adLoaded, setAdLoaded] = useState(false);
+  const [adSenseFilled, setAdSenseFilled] = useState(false);
   const insRef = useRef(null);
 
   useEffect(() => {
     try {
-      if (typeof window !== "undefined") {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      if (typeof window !== "undefined" && window.adsbygoogle) {
+        window.adsbygoogle.push({});
       }
-    } catch (err) {
-      // AdSense push safely caught
-    }
+    } catch (err) {}
 
-    // Monitor when AdSense injects iframe and fills ad
     if (insRef.current) {
       const checkAdStatus = () => {
-        const status = insRef.current?.getAttribute("data-ad-status");
-        if (status === "filled") {
-          setAdLoaded(true);
+        if (insRef.current?.getAttribute("data-ad-status") === "filled") {
+          setAdSenseFilled(true);
         }
       };
-
       const observer = new MutationObserver(checkAdStatus);
       observer.observe(insRef.current, { attributes: true, attributeFilter: ["data-ad-status"] });
-      checkAdStatus();
-
       return () => observer.disconnect();
     }
   }, []);
 
-  // Determine device-tailored dimensions & reserved min-height to prevent Cumulative Layout Shift (CLS)
   const isRectangle = format === "rectangle";
-  const containerClasses = isRectangle
-    ? "min-h-[250px] sm:min-h-[280px] max-w-[336px]"
-    : "min-h-[60px] sm:min-h-[90px] md:min-h-[100px] w-full max-w-4xl";
 
   return (
     <aside 
       aria-label="Advertisement Banner"
-      className={`relative mx-auto my-5 sm:my-7 flex flex-col items-center justify-center overflow-hidden rounded-2xl transition-all ${containerClasses}`}
+      className={`relative mx-auto my-4 flex flex-col items-center justify-center overflow-hidden rounded-2xl transition-all ${
+        isRectangle ? "max-w-[336px] w-full" : "w-full max-w-4xl"
+      }`}
     >
-      {/* Visual Glassmorphic Placeholder (Displayed until ad fills, preventing layout shift) */}
-      {!adLoaded && (
-        <div className="absolute inset-0 w-full h-full rounded-2xl border border-dashed border-slate-800/90 bg-gradient-to-r from-slate-950/70 via-slate-900/50 to-slate-950/70 flex flex-col items-center justify-center p-3 text-center select-none shadow-inner">
-          <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-            <Megaphone size={13} className="text-blue-400" />
-            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-300">
-              {label}
-            </span>
+      {/* Monetag SmartLink Sponsored Card (replaces empty AdSense placeholder) */}
+      {!adSenseFilled && (
+        <a
+          href="https://uplcm.com/4/11972780"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`w-full group rounded-2xl border border-blue-500/20 bg-gradient-to-r from-slate-900/90 via-blue-950/40 to-slate-900/90 hover:border-blue-500/50 p-3 sm:p-4 flex items-center justify-between gap-3 text-left transition-all shadow-lg hover:shadow-blue-950/30 cursor-pointer ${
+            isRectangle ? "flex-col text-center" : "flex-row"
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Sparkles size={17} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                  Sponsored
+                </span>
+                <span className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 transition-colors truncate">
+                  High-Speed Unlimited Cloud & Media Streaming
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                Check recommended partner offers • 100% Free & Fast
+              </p>
+            </div>
           </div>
-          <span className="text-[10px] text-slate-500 hidden sm:inline-block">
-            Responsive Ad Unit (Mobile: 320×50 • Tablet: 728×90 • Desktop: 970×90)
-          </span>
-        </div>
+          <div className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-blue-400 group-hover:text-blue-300 bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-500/20 group-hover:bg-blue-500/20 transition-all">
+            <span>Explore</span>
+            <ExternalLink size={12} />
+          </div>
+        </a>
       )}
 
-      {/* Google AdSense ins container */}
+      {/* AdSense fallback container (hidden until AdSense is approved & fills) */}
       <ins
         ref={insRef}
         className="adsbygoogle relative z-10 w-full"
         style={{
-          display: "block",
+          display: adSenseFilled ? "block" : "none",
           textAlign: "center",
           minHeight: isRectangle ? "250px" : "60px",
         }}
