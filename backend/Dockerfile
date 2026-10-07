@@ -1,6 +1,6 @@
-# ===================================================================
-# UNIVERSAL MEDIA STUDIO - BACKEND PRODUCTION DOCKERFILE FOR COOLIFY
-# Includes Node.js, Python 3, FFmpeg, and yt-dlp binary
+﻿# ===================================================================
+# UNIVERSAL MEDIA STUDIO - BACKEND PRODUCTION DOCKERFILE FOR COOLIFY / DOCKER COMPOSE
+# Includes Node.js, Python 3, FFmpeg, yt-dlp binary, and POT Plugin
 # ===================================================================
 
 FROM node:20-bookworm-slim
@@ -17,6 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install latest yt-dlp binary
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
+
+# Install PO-Token Provider companion plugin for yt-dlp to bypass bot detection on datacenter VPS
+RUN pip install --no-cache-dir --break-system-packages -U bgutil-ytdlp-pot-provider || true
 
 WORKDIR /app
 

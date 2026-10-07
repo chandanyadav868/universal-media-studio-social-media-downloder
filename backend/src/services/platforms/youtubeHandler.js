@@ -5,15 +5,19 @@ import { formatDuration, sanitizeMediaUrl } from "./baseHandler.js";
 
 /**
  * YouTube & YouTube Shorts Modular Handler
- * Provides:
- * 1. Normalized vertical Shorts resolution (720p HD, 1080p FHD)
- * 2. Strict H.264 (AVC1) format filtering (eliminates unsupported AV1 downscales)
- * 3. 100% Windows Media Player & Apple compatible standard AAC audio remuxing
+ * Features:
+ * 1. Hybrid Failover Engine: Automatically rotates across PO-Token provider, Android/Web, iOS/MWeb, and Cookies
+ * 2. Normalized vertical Shorts resolution (720p HD, 1080p FHD, 4K)
+ * 3. Strict H.264 (AVC1) format filtering
+ * 4. 100% Windows Media Player & Apple compatible standard AAC audio remuxing
  */
 export const youtubeHandler = {
   name: "YouTube",
-  engineName: "YouTube Studio DASH Remuxer (WMP & Apple Compliant)",
+  engineName: "YouTube Studio DASH Remuxer (Hybrid Failover + AAC)",
   processingMethod: "Zero-Disk DASH Muxing with Universal Stereo AAC",
+
+  // Cache last successful strategy to optimize streaming
+  _lastSuccessfulStrategy: null,
 
   canHandle(url) {
     if (!url) return false;
@@ -21,33 +25,81 @@ export const youtubeHandler = {
     return lower.includes("youtube.com") || lower.includes("youtu.be");
   },
 
-  inspect(rawUrl, ytdlpPath) {
-    return new Promise((resolve, reject) => {
-      const cleanUrl = sanitizeMediaUrl(rawUrl);
-      const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
-      const args = [
+  /**
+   * Generates hybrid failover strategies in prioritized order
+   */
+  _getStrategies() {
+    const potServer = process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
+    const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
+    const hasCookies = fs.existsSync(cookiesPath);
+
+    const strategies = [
+      {
+        name: "POT-Provider + Android/Web Hybrid (Primary)",
+        args: [
+          "--js-runtimes", "node",
+          "--extractor-args", `youtubepot-bgutilhttp:base_url=${potServer};youtube:player_client=android,web`,
+        ],
+      },
+      {
+        name: "Standard Android & Web Emulation (Secondary)",
+        args: [
+          "--js-runtimes", "node",
+          "--extractor-args", "youtube:player_client=android,web",
+        ],
+      },
+      {
+        name: "iOS & Mobile Web Emulation (Tertiary)",
+        args: [
+          "--js-runtimes", "node",
+          "--extractor-args", "youtube:player_client=ios,mweb",
+        ],
+      },
+    ];
+
+    // Strategy: Throwaway Burner Cookies (if cookies.txt is provided)
+    if (hasCookies) {
+      strategies.push({
+        name: "Burner Cookie Pool Authentication",
+        args: [
+          "--cookies", cookiesPath,
+          "--js-runtimes", "node",
+          "--extractor-args", "youtube:player_client=web",
+        ],
+      });
+    }
+
+    // Strategy: IPv6 Routing Evasion
+    strategies.push({
+      name: "Force IPv6 Datacenter Bypass",
+      args: [
+        "--force-ipv6",
         "--js-runtimes", "node",
         "--extractor-args", "youtube:player_client=android,web",
+      ],
+    });
+
+    return strategies;
+  },
+
+  /**
+   * Executes inspection for a single strategy
+   */
+  _runInspect(cleanUrl, ytdlpPath, strategy) {
+    return new Promise((resolve, reject) => {
+      const args = [
+        ...strategy.args,
         "--dump-single-json",
         "--no-warnings",
         "--no-playlist",
         "--skip-download",
+        cleanUrl,
       ];
-      if (fs.existsSync(cookiesPath)) {
-        args.push("--cookies", cookiesPath);
-      }
-      args.push(cleanUrl);
 
       execFile(ytdlpPath, args, { maxBuffer: 1024 * 1024 * 30 }, (error, stdout, stderr) => {
         if (error) {
           const errMsg = stderr || error.message || "";
-          if (errMsg.includes("private") || errMsg.includes("login")) {
-            return reject(new Error("This YouTube video is private or restricted."));
-          }
-          if (errMsg.includes("404") || errMsg.includes("Video unavailable")) {
-            return reject(new Error("YouTube video unavailable or removed."));
-          }
-          return reject(new Error(`Failed to inspect YouTube video: ${errMsg.split("\n")[0]}`));
+          return reject(new Error(errMsg.split("\n")[0] || "yt-dlp inspection failed."));
         }
 
         try {
@@ -62,7 +114,6 @@ export const youtubeHandler = {
           );
 
           // Group formats by standard height bucket
-          // For vertical Shorts (e.g. 720x1280), use the shorter dimension (width: 720)
           const formatsByResolution = new Map();
           for (const fmt of videoFormats) {
             const w = fmt.width || 0;
@@ -86,16 +137,12 @@ export const youtubeHandler = {
             formatsByResolution.get(bucket).push(fmt);
           }
 
-          // Sort buckets descending (2160p, 1080p, 720p, 480p, 360p)
+          // Sort buckets descending
           const sortedBuckets = Array.from(formatsByResolution.keys()).sort((a, b) => b - a);
 
           for (const bucket of sortedBuckets) {
             const group = formatsByResolution.get(bucket);
 
-            // Prioritize:
-            // 1. HTTPS direct DASH chunks over HLS m3u8 (avoids timestamp drift)
-            // 2. Strict H.264 / AVC1 (avoids unsupported AV1/VP9 codecs)
-            // 3. Highest bitrate
             group.sort((a, b) => {
               const aIsHttps = (a.protocol || "").startsWith("http") && !(a.protocol || "").includes("m3u8");
               const bIsHttps = (b.protocol || "").startsWith("http") && !(b.protocol || "").includes("m3u8");
@@ -181,25 +228,54 @@ export const youtubeHandler = {
   },
 
   /**
-   * Builds the zero-disk streaming pipeline for YouTube
-   * Returns: { streamerProcess, cleanup }
+   * Hybrid Failover Engine: Tries strategies sequentially until one succeeds
+   */
+  async inspect(rawUrl, ytdlpPath) {
+    const cleanUrl = sanitizeMediaUrl(rawUrl);
+    const strategies = this._getStrategies();
+
+    let lastError = null;
+    for (let i = 0; i < strategies.length; i++) {
+      const strategy = strategies[i];
+      try {
+        const result = await this._runInspect(cleanUrl, ytdlpPath, strategy);
+        console.log(`[YouTubeHandler] Succeeded using strategy: ${strategy.name}`);
+        this._lastSuccessfulStrategy = strategy;
+        return result;
+      } catch (err) {
+        lastError = err;
+        const errMsg = err.message || "";
+        console.warn(`[YouTubeHandler] Strategy ${i + 1}/${strategies.length} (${strategy.name}) failed: ${errMsg}`);
+
+        // Check if error is private or removed (do not retry for genuinely non-existent videos)
+        if (errMsg.includes("private") || errMsg.includes("404") || errMsg.includes("unavailable")) {
+          throw err;
+        }
+      }
+    }
+
+    throw new Error(`Failed to inspect YouTube video after all hybrid failovers: ${lastError?.message || "All strategies failed."}`);
+  },
+
+  /**
+   * Builds the zero-disk streaming pipeline for YouTube with hybrid fallback arguments
    */
   startStream({ url, formatSelector, mediaType, ffmpegPath, ytdlpPath, res }) {
     const isAudio = mediaType === "audio" && !(formatSelector && (formatSelector.includes("+") || formatSelector === "hd" || formatSelector === "sd"));
+    const activeStrategy = this._lastSuccessfulStrategy || this._getStrategies()[0];
+    const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
 
     if (isAudio) {
-      // Audio stream: extract clean MP3 via libmp3lame
-      const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
       const ytdlpArgs = [
-        "--js-runtimes", "node",
-        "--extractor-args", "youtube:player_client=android,web",
+        ...activeStrategy.args,
         "-f", "bestaudio/best",
         "-o", "-",
       ];
-      if (fs.existsSync(cookiesPath)) {
+      if (fs.existsSync(cookiesPath) && !ytdlpArgs.includes("--cookies")) {
         ytdlpArgs.push("--cookies", cookiesPath);
       }
       ytdlpArgs.push(url);
+
       const ffmpegArgs = ["-i", "pipe:0", "-vn", "-c:a", "libmp3lame", "-q:a", "2", "-f", "mp3", "pipe:1"];
 
       const ytdlpProc = spawn(ytdlpPath, ytdlpArgs);
@@ -226,23 +302,16 @@ export const youtubeHandler = {
       };
     }
 
-    // Video stream:
-    // yt-dlp merges separate DASH video + audio into stdout as MPEG-TS.
-    // We pipe directly into FFmpeg:
-    // 1. -c:v copy (zero CPU video passthrough)
-    // 2. -c:a aac -b:a 192k (re-encodes audio to pristine standard AAC, fixing Windows Media Player 'mp4a format not supported' error)
-    // 3. -movflags frag_keyframe+default_base_moof (initial non-empty moov header with full track parameters)
+    // Video stream: zero-disk pipe with FFmpeg AAC remux
     const effectiveFormat = formatSelector || "bestvideo[vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best/bestvideo+bestaudio";
 
-    const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
     const ytdlpArgs = [
-      "--js-runtimes", "node",
-      "--extractor-args", "youtube:player_client=android,web",
+      ...activeStrategy.args,
       "--ffmpeg-location", ffmpegPath,
       "-f", effectiveFormat,
       "-o", "-",
     ];
-    if (fs.existsSync(cookiesPath)) {
+    if (fs.existsSync(cookiesPath) && !ytdlpArgs.includes("--cookies")) {
       ytdlpArgs.push("--cookies", cookiesPath);
     }
     ytdlpArgs.push(url);
