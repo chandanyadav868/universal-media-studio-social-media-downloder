@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { execFile, spawn } from "child_process";
 import { formatDuration, sanitizeMediaUrl } from "./baseHandler.js";
 
@@ -22,14 +24,19 @@ export const youtubeHandler = {
   inspect(rawUrl, ytdlpPath) {
     return new Promise((resolve, reject) => {
       const cleanUrl = sanitizeMediaUrl(rawUrl);
+      const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
       const args = [
         "--js-runtimes", "node",
+        "--extractor-args", "youtube:player_client=android,web",
         "--dump-single-json",
         "--no-warnings",
         "--no-playlist",
         "--skip-download",
-        cleanUrl,
       ];
+      if (fs.existsSync(cookiesPath)) {
+        args.push("--cookies", cookiesPath);
+      }
+      args.push(cleanUrl);
 
       execFile(ytdlpPath, args, { maxBuffer: 1024 * 1024 * 30 }, (error, stdout, stderr) => {
         if (error) {
@@ -182,12 +189,17 @@ export const youtubeHandler = {
 
     if (isAudio) {
       // Audio stream: extract clean MP3 via libmp3lame
+      const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
       const ytdlpArgs = [
         "--js-runtimes", "node",
+        "--extractor-args", "youtube:player_client=android,web",
         "-f", "bestaudio/best",
         "-o", "-",
-        url
       ];
+      if (fs.existsSync(cookiesPath)) {
+        ytdlpArgs.push("--cookies", cookiesPath);
+      }
+      ytdlpArgs.push(url);
       const ffmpegArgs = ["-i", "pipe:0", "-vn", "-c:a", "libmp3lame", "-q:a", "2", "-f", "mp3", "pipe:1"];
 
       const ytdlpProc = spawn(ytdlpPath, ytdlpArgs);
@@ -222,13 +234,18 @@ export const youtubeHandler = {
     // 3. -movflags frag_keyframe+default_base_moof (initial non-empty moov header with full track parameters)
     const effectiveFormat = formatSelector || "bestvideo[vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best/bestvideo+bestaudio";
 
+    const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
     const ytdlpArgs = [
       "--js-runtimes", "node",
+      "--extractor-args", "youtube:player_client=android,web",
       "--ffmpeg-location", ffmpegPath,
       "-f", effectiveFormat,
       "-o", "-",
-      url
     ];
+    if (fs.existsSync(cookiesPath)) {
+      ytdlpArgs.push("--cookies", cookiesPath);
+    }
+    ytdlpArgs.push(url);
 
     const ffmpegArgs = [
       "-fflags", "+genpts",
