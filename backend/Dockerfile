@@ -1,11 +1,10 @@
 # ===================================================================
-# UNIVERSAL MEDIA STUDIO - BACKEND PRODUCTION DOCKERFILE FOR COOLIFY / DOCKER COMPOSE
-# Includes Node.js, Python 3, FFmpeg, yt-dlp, and POT Plugin
+# UNIVERSAL MEDIA STUDIO - BACKEND PRODUCTION DOCKERFILE
+# Node.js 20 + Python 3 + FFmpeg + yt-dlp[default] (EJS challenge solver) + bgutil PO-token plugin
 # ===================================================================
 
 FROM node:20-bookworm-slim
 
-# Install system dependencies: Python3, FFmpeg, curl, ca-certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -14,19 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp via pip and ensure executable in PATH
-RUN pip install --no-cache-dir --break-system-packages -U yt-dlp bgutil-ytdlp-pot-provider
-
-# Ensure /usr/local/bin/yt-dlp is present
-RUN which yt-dlp || ln -s $(which yt-dlp) /usr/local/bin/yt-dlp || true
+# yt-dlp[default] pulls in yt-dlp-ejs (needed to solve YouTube JS challenges).
+# bgutil-ytdlp-pot-provider is the plugin that fetches PO tokens from the pot-provider container.
+# Both must be installed with pip into the same Python so the plugin is discovered.
+RUN pip install --no-cache-dir --break-system-packages -U "yt-dlp[default]" bgutil-ytdlp-pot-provider \
+    && yt-dlp --version
 
 WORKDIR /app
 
-# Copy dependency manifests
 COPY package*.json ./
 RUN npm ci || npm install
 
-# Copy application source code
 COPY . .
 
 ENV PORT=5000

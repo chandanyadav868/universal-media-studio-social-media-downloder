@@ -4,54 +4,108 @@ import { execFile, spawn } from "child_process";
 import { formatDuration, sanitizeMediaUrl } from "./baseHandler.js";
 
 /**
- * YouTube & YouTube Shorts Modular Handler
- * Features:
- * 1. Direct PO-Token Injection Engine: Communicates with Docker pot-provider container
- *    to generate proof-of-origin tokens and injects them natively into yt-dlp.
- * 2. Smart TV & Android Client Fallback: Seamless bot-challenge bypass without login.
- * 3. Support for burner Cookie Session Authentication via cookies.txt or YOUTUBE_COOKIES env.
- * 4. 100% Windows Media Player & Apple compatible standard AAC audio remuxing.
+ * YouTube & YouTube Shorts Modular Handler (v3)
+ * - Strategy ladder: Cookies -> bgutil plugin (official) -> manual PO-token -> TV -> iOS/MWeb
+ * - Optional outbound proxy via YTDLP_PROXY (residential / WARP socks5)
+ * - Verbose diagnostics: environment report, egress IP, per-strategy yt-dlp debug lines, timings
  */
 
-// In-memory cache for Proof-of-Origin (PO) Token
+const TAG = "[YouTubeHandler]";
+const log = (...a) => console.log(TAG, ...a);
+const warn = (...a) => console.warn(TAG, ...a);
+
+// Shorten long tokens / visitor data so logs stay readable and secrets are not dumped
+const redact = (s) =>
+  String(s).replace(/[A-Za-z0-9_\-%=+\/]{40,}/g, (m) => `${m.slice(0, 8)}…(${m.length} chars)`);
+
+const getProxy = () => (process.env.YTDLP_PROXY || "").trim() || null;
+const getPotServer = () => process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
+const baseArgs = () => {
+  const args = ["--force-ipv4", "--js-runtimes", "node"];
+  const proxy = getProxy();
+  if (proxy) args.push("--proxy", proxy);
+  return args;
+};
+
+// ---------------------------------------------------------------------------
+// One-time environment report (yt-dlp version, plugins, egress IP)
+// ---------------------------------------------------------------------------
+let envReportDone = false;
+
+async function logEnvironmentReport(ytdlpPath) {
+  if (envReportDone) return;
+  envReportDone = true;
+
+  log("================ ENVIRONMENT REPORT ================");
+  log(`yt-dlp path: ${ytdlpPath}`);
+  log(`POT provider URL: ${getPotServer()}`);
+  log(`Proxy (YTDLP_PROXY): ${getProxy() ? redact(getProxy()) : "not set"}`);
+  log(`Cookies file present: ${fs.existsSync(path.resolve(process.cwd(), "cookies.txt"))}`);
+
+  try {
+    const r = await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(5000) });
+    const { ip } = await r.json();
+    log(`Outbound public IP (what YouTube sees without proxy): ${ip}`);
+  } catch (e) {
+    warn(`Could not determine outbound IP: ${e.message}`);
+  }
+
+  // `yt-dlp -v` with no URL prints the debug header (version, python, plugins, runtimes) then exits
+  await new Promise((resolve) => {
+    execFile(ytdlpPath, ["-v", "--js-runtimes", "node"], { timeout: 20000, maxBuffer: 5 * 1024 * 1024 }, (_err, _out, stderr) => {
+      const keep = /version|python|plugin|exe versions|js runtime|runtime|proxy|pot|bgutil|ejs/i;
+      (stderr || "")
+        .split("\n")
+        .filter((l) => l.startsWith("[debug]") && keep.test(l))
+        .forEach((l) => log(`  ${redact(l.trim())}`));
+      resolve();
+    });
+  });
+  log("====================================================");
+}
+
+// ---------------------------------------------------------------------------
+// Manual PO token fetch (used by the fallback "manual injection" strategy)
+// ---------------------------------------------------------------------------
 let cachedPoToken = null;
 let tokenExpiresAt = 0;
 
 async function getOrFetchPoToken() {
   const now = Date.now();
   if (cachedPoToken && now < tokenExpiresAt) {
+    log(`Using cached PO token (expires in ${Math.round((tokenExpiresAt - now) / 1000)}s)`);
     return cachedPoToken;
   }
 
-  const potServer = process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
-  const candidates = [potServer, "http://127.0.0.1:4416"];
+  const body = {};
+  if (getProxy()) body.proxy = getProxy(); // token must be minted from the same IP yt-dlp uses
 
-  for (const base of candidates) {
+  for (const base of [getPotServer(), "http://127.0.0.1:4416"]) {
+    const t0 = Date.now();
     try {
       const res = await fetch(`${base}/get_pot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.poToken) {
-          cachedPoToken = {
-            poToken: data.poToken,
-            visitorData: data.contentBinding,
-          };
-          tokenExpiresAt = data.expiresAt ? new Date(data.expiresAt).getTime() - 60000 : now + 3600000;
-          console.log(`[YouTubeHandler] Acquired fresh Proof-of-Origin Token from ${base}`);
-          return cachedPoToken;
-        }
+      if (!res.ok) {
+        warn(`PO token request to ${base} returned HTTP ${res.status} (${Date.now() - t0}ms)`);
+        continue;
       }
+      const data = await res.json();
+      if (!data?.poToken) {
+        warn(`PO token response from ${base} had no poToken field`);
+        continue;
+      }
+      cachedPoToken = { poToken: data.poToken, visitorData: data.contentBinding };
+      tokenExpiresAt = data.expiresAt ? new Date(data.expiresAt).getTime() - 60000 : now + 3600000;
+      log(`Acquired PO token from ${base} in ${Date.now() - t0}ms (token ${data.poToken.length} chars, visitorData ${data.contentBinding ? "yes" : "no"})`);
+      return cachedPoToken;
     } catch (e) {
-      // Continue to next candidate
+      warn(`PO token request to ${base} failed after ${Date.now() - t0}ms: ${e.message}`);
     }
   }
-
   return null;
 }
 
@@ -68,98 +122,102 @@ export const youtubeHandler = {
     return lower.includes("youtube.com") || lower.includes("youtu.be");
   },
 
-  /**
-   * Generates hybrid failover strategies in prioritized order
-   */
   async _getStrategies() {
     const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
 
-    // Automatically sync cookies from YOUTUBE_COOKIES env variable if provided
     if (process.env.YOUTUBE_COOKIES && process.env.YOUTUBE_COOKIES.trim().length > 10) {
       try {
         fs.writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES.trim(), "utf8");
-      } catch (e) {}
+      } catch (e) {
+        warn(`Could not write cookies.txt from YOUTUBE_COOKIES: ${e.message}`);
+      }
     }
 
     const hasCookies = fs.existsSync(cookiesPath) && fs.statSync(cookiesPath).size > 10;
     const strategies = [];
 
-    // 1. If cookies are provided, prioritize authenticated session
+    // 1. Authenticated cookies (only if the operator supplied burner cookies)
     if (hasCookies) {
       strategies.push({
-        name: "Authenticated Cookie Session",
+        name: "Cookie Session + bgutil plugin",
         args: [
-          "--force-ipv4",
+          ...baseArgs(),
           "--cookies", cookiesPath,
-          "--extractor-args", "youtube:player_client=web,android",
+          "--extractor-args", `youtubepot-bgutilhttp:base_url=${getPotServer()}`,
+          "--extractor-args", "youtube:player_client=web,mweb",
         ],
       });
     }
 
-    // 2. Direct Docker Proof-of-Origin (PO) Token Injection (Bypasses bot challenge on datacenter VPS)
-    const potData = await getOrFetchPoToken();
-    if (potData && potData.poToken) {
-      const extractorArg = potData.visitorData
-        ? `youtube:po_token=web+${potData.poToken};visitor_data=${potData.visitorData}`
-        : `youtube:po_token=web+${potData.poToken}`;
+    // 2. Official route: bgutil plugin requests tokens itself with the correct context
+    strategies.push({
+      name: "bgutil plugin (official PO-token provider)",
+      args: [
+        ...baseArgs(),
+        "--extractor-args", `youtubepot-bgutilhttp:base_url=${getPotServer()}`,
+        "--extractor-args", "youtube:player_client=mweb,web",
+      ],
+    });
+
+    // 3. Manual injection with yt-dlp's documented format (mweb + visitor data, skip webpage)
+    const pot = await getOrFetchPoToken();
+    if (pot?.poToken && pot.visitorData) {
       strategies.push({
-        name: "Docker PO-Token Native Injection",
+        name: "Manual PO-token injection (mweb + visitor_data)",
         args: [
-          "--force-ipv4",
-          "--extractor-args", extractorArg,
+          ...baseArgs(),
+          "--extractor-args",
+          `youtube:player_client=mweb;player_skip=webpage,configs;visitor_data=${pot.visitorData};po_token=mweb.gvs+${pot.poToken},mweb.player+${pot.poToken}`,
         ],
       });
     }
 
-    // 3. Smart TV Client Evasion
+    // 4. TV client
     strategies.push({
-      name: "Smart TV Client Evasion",
-      args: [
-        "--force-ipv4",
-        "--extractor-args", "youtube:player_client=tv",
-      ],
+      name: "TV client",
+      args: [...baseArgs(), "--extractor-args", "youtube:player_client=tv"],
     });
 
-    // 4. Android Mobile Client Evasion
+    // 5. iOS / mobile web
     strategies.push({
-      name: "Android Mobile Client Evasion",
-      args: [
-        "--force-ipv4",
-        "--extractor-args", "youtube:player_client=android",
-      ],
-    });
-
-    // 5. iOS & Mobile Web Emulation
-    strategies.push({
-      name: "iOS & Mobile Web Emulation",
-      args: [
-        "--force-ipv4",
-        "--extractor-args", "youtube:player_client=ios,mweb",
-      ],
+      name: "iOS + MWeb clients",
+      args: [...baseArgs(), "--extractor-args", "youtube:player_client=ios,mweb"],
     });
 
     return strategies;
   },
 
-  /**
-   * Executes inspection for a single strategy
-   */
-  _runInspect(cleanUrl, ytdlpPath, strategy) {
+  _runInspect(cleanUrl, ytdlpPath, strategy, label) {
     return new Promise((resolve, reject) => {
       const args = [
         ...strategy.args,
+        "-v",
         "--dump-single-json",
-        "--no-warnings",
         "--no-playlist",
         "--skip-download",
         cleanUrl,
       ];
 
-      execFile(ytdlpPath, args, { maxBuffer: 1024 * 1024 * 30 }, (error, stdout, stderr) => {
+      log(`▶ ${label} "${strategy.name}"`);
+      log(`  cmd: yt-dlp ${redact(args.join(" "))}`);
+      const t0 = Date.now();
+
+      execFile(ytdlpPath, args, { maxBuffer: 1024 * 1024 * 50, timeout: 90000 }, (error, stdout, stderr) => {
+        const ms = Date.now() - t0;
+        const lines = (stderr || "").split("\n").map((l) => l.trim()).filter(Boolean);
+
+        // Only the lines that explain what happened (clients used, PO token activity, warnings, errors)
+        const interesting = /\[youtube\]|po.?token|\[pot|bgutil|player|client|proxy|sign in|bot|http error|403|429|warning|error|challenge|js runtime|ejs/i;
+        const detail = lines.filter((l) => interesting.test(l) && !l.includes("Loaded ")).slice(-30);
+        detail.forEach((l) => log(`  │ ${redact(l)}`));
+
         if (error) {
-          const errMsg = stderr || error.message || "";
-          return reject(new Error(errMsg.split("\n")[0] || "yt-dlp inspection failed."));
+          const errLine = lines.find((l) => l.startsWith("ERROR:")) || lines[lines.length - 1] || error.message;
+          warn(`✖ ${label} "${strategy.name}" failed in ${ms}ms (exit ${error.code ?? "?"}${error.killed ? ", killed by timeout" : ""})`);
+          return reject(new Error(errLine || "yt-dlp inspection failed."));
         }
+
+        log(`✔ ${label} "${strategy.name}" succeeded in ${ms}ms`);
 
         try {
           const info = JSON.parse(stdout);
@@ -167,12 +225,10 @@ export const youtubeHandler = {
           const formats = [];
           const duration = info.duration || 0;
 
-          // Filter for valid video formats
           const videoFormats = rawFormats.filter(
             (f) => (f.vcodec && f.vcodec !== "none") || (f.height || f.resolution)
           );
 
-          // Group formats by standard height bucket
           const formatsByResolution = new Map();
           for (const fmt of videoFormats) {
             const w = fmt.width || 0;
@@ -180,54 +236,29 @@ export const youtubeHandler = {
             const resHeight = Math.min(w, h) || h || 0;
 
             let targetHeight = 0;
-            let label = "";
-
-            if (resHeight >= 2160) {
-              targetHeight = 2160;
-              label = "2160p Video";
-            } else if (resHeight >= 1440) {
-              targetHeight = 1440;
-              label = "1440p Video";
-            } else if (resHeight >= 1080) {
-              targetHeight = 1080;
-              label = "1080p Video";
-            } else if (resHeight >= 720) {
-              targetHeight = 720;
-              label = "720p Video";
-            } else if (resHeight >= 480) {
-              targetHeight = 480;
-              label = "480p Video";
-            } else if (resHeight >= 360) {
-              targetHeight = 360;
-              label = "360p Video";
-            } else if (resHeight >= 240) {
-              targetHeight = 240;
-              label = "240p Video";
-            }
+            let label2 = "";
+            if (resHeight >= 2160) { targetHeight = 2160; label2 = "2160p Video"; }
+            else if (resHeight >= 1440) { targetHeight = 1440; label2 = "1440p Video"; }
+            else if (resHeight >= 1080) { targetHeight = 1080; label2 = "1080p Video"; }
+            else if (resHeight >= 720) { targetHeight = 720; label2 = "720p Video"; }
+            else if (resHeight >= 480) { targetHeight = 480; label2 = "480p Video"; }
+            else if (resHeight >= 360) { targetHeight = 360; label2 = "360p Video"; }
+            else if (resHeight >= 240) { targetHeight = 240; label2 = "240p Video"; }
 
             if (targetHeight > 0) {
               const existing = formatsByResolution.get(targetHeight);
               const isH264 = (fmt.vcodec || "").toLowerCase().startsWith("avc1");
               const isExistingH264 = (existing?.vcodec || "").toLowerCase().startsWith("avc1");
-
-              if (!existing) {
-                formatsByResolution.set(targetHeight, { ...fmt, targetHeight, label });
-              } else if (isH264 && !isExistingH264) {
-                formatsByResolution.set(targetHeight, { ...fmt, targetHeight, label });
-              } else if (isH264 === isExistingH264 && (fmt.tbr || 0) > (existing.tbr || 0)) {
-                formatsByResolution.set(targetHeight, { ...fmt, targetHeight, label });
+              if (!existing || (isH264 && !isExistingH264) ||
+                  (isH264 === isExistingH264 && (fmt.tbr || 0) > (existing.tbr || 0))) {
+                formatsByResolution.set(targetHeight, { ...fmt, targetHeight, label: label2 });
               }
             }
           }
 
-          // Sort descending by resolution height
           const sortedHeights = Array.from(formatsByResolution.keys()).sort((a, b) => b - a);
-
           for (const height of sortedHeights) {
             const fmt = formatsByResolution.get(height);
-            const isHd = height >= 720;
-            const is4k = height >= 2160;
-
             const videoFilesize = fmt.filesize || fmt.filesize_approx || 0;
             const audioFilesize = (128 * 1024 * duration) / 8;
             const totalBytes = videoFilesize > 0 ? videoFilesize + audioFilesize : 0;
@@ -241,14 +272,13 @@ export const youtubeHandler = {
               filesizeMB,
               filesizeApprox: filesizeMB ? `~${filesizeMB} MB` : null,
               vcodec: fmt.vcodec || "avc1",
-              isHd,
-              is4k,
+              isHd: height >= 720,
+              is4k: height >= 2160,
               note: `Full ${fmt.label} with Synchronized Universal Audio`,
               processingMethod: "Zero-Disk DASH Remux (Universal AAC)",
             });
           }
 
-          // Guaranteed Universal High-Bitrate MP3 Audio format
           const audioBytes = (320 * 1024 * duration) / 8;
           const audioMB = audioBytes > 0 ? (audioBytes / (1024 * 1024)).toFixed(1) : null;
           formats.push({
@@ -265,6 +295,8 @@ export const youtubeHandler = {
             note: "High-Bitrate 320kbps Audio Track",
             processingMethod: "Direct LAME MP3 Extraction",
           });
+
+          log(`  formats returned: ${formats.map((f) => f.resolution).join(", ")}`);
 
           resolve({
             title: info.title || "YouTube Media",
@@ -286,85 +318,58 @@ export const youtubeHandler = {
     });
   },
 
-  /**
-   * Hybrid Failover Engine: Tries strategies sequentially until one succeeds
-   */
   async inspect(rawUrl, ytdlpPath) {
+    await logEnvironmentReport(ytdlpPath);
+
     const cleanUrl = sanitizeMediaUrl(rawUrl);
     const strategies = await this._getStrategies();
+    log(`Inspecting ${cleanUrl} with ${strategies.length} strategies: ${strategies.map((s) => s.name).join(" → ")}`);
 
+    const summary = [];
     let lastError = null;
+
     for (let i = 0; i < strategies.length; i++) {
       const strategy = strategies[i];
+      const label = `[${i + 1}/${strategies.length}]`;
+      const t0 = Date.now();
       try {
-        const result = await this._runInspect(cleanUrl, ytdlpPath, strategy);
-        console.log(`[YouTubeHandler] Succeeded using strategy: ${strategy.name}`);
+        const result = await this._runInspect(cleanUrl, ytdlpPath, strategy, label);
         this._lastSuccessfulStrategy = strategy;
+        summary.push(`${label} ${strategy.name}: OK (${Date.now() - t0}ms)`);
+        log(`SUMMARY:\n  ${summary.join("\n  ")}`);
         return result;
       } catch (err) {
         lastError = err;
-        const errMsg = err.message || "";
-        console.warn(`[YouTubeHandler] Strategy ${i + 1}/${strategies.length} (${strategy.name}) failed: ${errMsg}`);
+        const msg = err.message || "";
+        summary.push(`${label} ${strategy.name}: FAIL (${Date.now() - t0}ms) ${msg.slice(0, 120)}`);
 
-        // Check if error is private or removed (do not retry for genuinely non-existent videos)
-        if (errMsg.includes("private") || errMsg.includes("404") || errMsg.includes("unavailable")) {
+        if (msg.includes("Private video") || msg.includes("Video unavailable") || msg.includes("This video is unavailable")) {
+          log(`SUMMARY:\n  ${summary.join("\n  ")}`);
           throw err;
         }
       }
     }
 
-    throw new Error(`Failed to inspect YouTube video after all hybrid failovers: ${lastError?.message || "All strategies failed."}`);
-  },
+    log(`SUMMARY:\n  ${summary.join("\n  ")}`);
 
-  /**
-   * Builds the zero-disk streaming pipeline for YouTube with hybrid fallback arguments
-   */
-  startStream({ url, formatSelector, mediaType, ffmpegPath, ytdlpPath, res }) {
-    const isAudio = mediaType === "audio" && !(formatSelector && (formatSelector.includes("+") || formatSelector === "hd" || formatSelector === "sd"));
-    const activeStrategy = this._lastSuccessfulStrategy || { name: "Default", args: ["--force-ipv4"] };
-    const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
-
-    if (isAudio) {
-      const ytdlpArgs = [
-        ...activeStrategy.args,
-        "-f", "bestaudio/best",
-        "-o", "-",
-      ];
-      if (fs.existsSync(cookiesPath) && !ytdlpArgs.includes("--cookies")) {
-        ytdlpArgs.push("--cookies", cookiesPath);
-      }
-      ytdlpArgs.push(url);
-
-      const ffmpegArgs = ["-i", "pipe:0", "-vn", "-c:a", "libmp3lame", "-q:a", "2", "-f", "mp3", "pipe:1"];
-
-      const ytdlpProc = spawn(ytdlpPath, ytdlpArgs);
-      const ffmpegProc = spawn(ffmpegPath, ffmpegArgs);
-
-      ytdlpProc.stdout.pipe(ffmpegProc.stdin);
-      ffmpegProc.stdout.pipe(res);
-
-      ytdlpProc.on("error", (e) => console.error("[YouTubeHandler] yt-dlp error:", e));
-      ffmpegProc.on("error", (e) => console.error("[YouTubeHandler] ffmpeg error:", e));
-
-      ffmpegProc.on("close", (code) => {
-        console.log(`[YouTubeHandler] Audio stream finished with code ${code}`);
-        res.end();
-      });
-
-      return {
-        cleanup() {
-          try {
-            ytdlpProc.kill("SIGKILL");
-            ffmpegProc.kill("SIGKILL");
-          } catch (e) {}
-        }
-      };
+    const botBlocked = summary.every((s) => /sign in|bot/i.test(s));
+    if (botBlocked) {
+      warn("All strategies hit YouTube's bot check. YouTube is flagging this server's outbound IP.");
+      warn("Fix options: set YTDLP_PROXY (residential or WARP socks5), or provide YOUTUBE_COOKIES from a burner account.");
+      throw new Error("YouTube is temporarily blocking this server (bot check). Please try again later.");
     }
 
-    const effectiveFormat = formatSelector || "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best";
+    throw new Error(`Failed to inspect YouTube video after all strategies: ${lastError?.message || "unknown error"}`);
+  },
+
+  startStream({ url, formatSelector, mediaType, ffmpegPath, ytdlpPath, res }) {
+    const isAudio = mediaType === "audio" && !(formatSelector && (formatSelector.includes("+") || formatSelector === "hd" || formatSelector === "sd"));
+    const activeStrategy = this._lastSuccessfulStrategy || { name: "Default", args: baseArgs() };
+    const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
+
     const ytdlpArgs = [
       ...activeStrategy.args,
-      "-f", effectiveFormat,
+      "-f", isAudio ? "bestaudio/best" : (formatSelector || "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"),
       "-o", "-",
     ];
     if (fs.existsSync(cookiesPath) && !ytdlpArgs.includes("--cookies")) {
@@ -372,17 +377,22 @@ export const youtubeHandler = {
     }
     ytdlpArgs.push(url);
 
-    const ffmpegArgs = [
-      "-fflags", "+genpts",
-      "-i", "pipe:0",
-      "-c:v", "copy",
-      "-c:a", "aac",
-      "-b:a", "192k",
-      "-ac", "2",
-      "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-      "-f", "mp4",
-      "pipe:1"
-    ];
+    const ffmpegArgs = isAudio
+      ? ["-i", "pipe:0", "-vn", "-c:a", "libmp3lame", "-q:a", "2", "-f", "mp3", "pipe:1"]
+      : [
+          "-fflags", "+genpts",
+          "-i", "pipe:0",
+          "-c:v", "copy",
+          "-c:a", "aac",
+          "-b:a", "192k",
+          "-ac", "2",
+          "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+          "-f", "mp4",
+          "pipe:1",
+        ];
+
+    log(`▶ Stream (${isAudio ? "audio" : "video"}) using strategy "${activeStrategy.name}"`);
+    log(`  cmd: yt-dlp ${redact(ytdlpArgs.join(" "))}`);
 
     const ytdlpProc = spawn(ytdlpPath, ytdlpArgs);
     const ffmpegProc = spawn(ffmpegPath, ffmpegArgs);
@@ -390,11 +400,19 @@ export const youtubeHandler = {
     ytdlpProc.stdout.pipe(ffmpegProc.stdin);
     ffmpegProc.stdout.pipe(res);
 
-    ytdlpProc.on("error", (e) => console.error("[YouTubeHandler] Video streaming yt-dlp error:", e));
-    ffmpegProc.on("error", (e) => console.error("[YouTubeHandler] Video streaming ffmpeg error:", e));
+    // Surface yt-dlp problems during streaming (403s, bot checks, etc.)
+    ytdlpProc.stderr.on("data", (chunk) => {
+      chunk.toString().split("\n").forEach((l) => {
+        if (/error|warning|403|429|sign in/i.test(l)) warn(`  stream yt-dlp: ${redact(l.trim())}`);
+      });
+    });
+
+    ytdlpProc.on("error", (e) => console.error(`${TAG} stream yt-dlp spawn error:`, e));
+    ffmpegProc.on("error", (e) => console.error(`${TAG} stream ffmpeg spawn error:`, e));
+    ytdlpProc.on("close", (code) => log(`  stream yt-dlp exited with code ${code}`));
 
     ffmpegProc.on("close", (code) => {
-      console.log(`[YouTubeHandler] Video streaming process finished with code ${code}`);
+      log(`  stream ffmpeg exited with code ${code}`);
       res.end();
     });
 
@@ -404,7 +422,7 @@ export const youtubeHandler = {
           ytdlpProc.kill("SIGKILL");
           ffmpegProc.kill("SIGKILL");
         } catch (e) {}
-      }
+      },
     };
-  }
+  },
 };
