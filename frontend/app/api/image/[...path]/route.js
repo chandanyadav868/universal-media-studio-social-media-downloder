@@ -4,9 +4,9 @@ const getBackendCandidates = () => {
   const list = [];
   if (process.env.BACKEND_URL) list.push(process.env.BACKEND_URL.replace(/\/+$/, ""));
   if (process.env.NEXT_PUBLIC_BACKEND_URL) list.push(process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, ""));
+  list.push("http://127.0.0.1:5000");
   list.push("http://backend:5000");
   list.push("http://universal-backend:5000");
-  list.push("http://127.0.0.1:5000");
   list.push("http://localhost:5000");
   return [...new Set(list.filter(Boolean))];
 };

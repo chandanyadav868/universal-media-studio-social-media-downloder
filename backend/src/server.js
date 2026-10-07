@@ -71,18 +71,20 @@ app.use(
 app.use(express.json());
 
 // Helper function to query installed binaries in production
+let cachedDiagnostics = null;
 const getSystemDiagnostics = () => {
+  if (cachedDiagnostics) return cachedDiagnostics;
   const runCmd = (cmd) => {
     try {
-      return execSync(cmd, { timeout: 3000, stdio: ["ignore", "pipe", "ignore"] })
+      return execSync(cmd, { timeout: 800, stdio: ["ignore", "pipe", "ignore"] })
         .toString()
         .trim();
     } catch (e) {
-      return `Unavailable (${e.message})`;
+      return "Unavailable";
     }
   };
 
-  return {
+  cachedDiagnostics = {
     python: runCmd("python3 --version") || runCmd("python --version"),
     ytdlp: runCmd("yt-dlp --version"),
     ffmpeg: runCmd("ffmpeg -version")?.split("\n")[0] || "Unavailable",
@@ -90,6 +92,7 @@ const getSystemDiagnostics = () => {
     platform: process.platform,
     arch: process.arch,
   };
+  return cachedDiagnostics;
 };
 
 // Health Check & Root Status
@@ -116,13 +119,15 @@ async function checkEngineStatus() {
   let potStatus = "offline";
   const potUrl = process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
   try {
-    const potRes = await fetch(`${potUrl}/ping`, { signal: AbortSignal.timeout(2000) });
+    const potRes = await fetch(`${potUrl}/ping`, { signal: AbortSignal.timeout(800) });
     if (potRes.ok) potStatus = "online";
   } catch (e) {
-    try {
-      const potRes2 = await fetch("http://127.0.0.1:4416/ping", { signal: AbortSignal.timeout(2000) });
-      if (potRes2.ok) potStatus = "online";
-    } catch (e2) {}
+    if (potUrl !== "http://127.0.0.1:4416") {
+      try {
+        const potRes2 = await fetch("http://127.0.0.1:4416/ping", { signal: AbortSignal.timeout(400) });
+        if (potRes2.ok) potStatus = "online";
+      } catch (e2) {}
+    }
   }
 
   return {
