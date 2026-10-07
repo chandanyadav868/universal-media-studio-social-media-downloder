@@ -1,0 +1,37 @@
+﻿version: '3.8'
+
+services:
+  # 1. Proof-of-Origin (PO) Token Generator Service
+  pot-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: universal-pot-provider
+    restart: always
+    ports:
+      - "4416:4416"
+    environment:
+      - PORT=4416
+    networks:
+      - universal-backend-net
+
+  # 2. Universal Media Studio Zero-Disk Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: universal-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - POT_PROVIDER_URL=http://pot-provider:4416
+      - FRONTEND_URL=https://humantalking.com
+    depends_on:
+      - pot-provider
+    networks:
+      - universal-backend-net
+
+networks:
+  universal-backend-net:
+    driver: bridge
