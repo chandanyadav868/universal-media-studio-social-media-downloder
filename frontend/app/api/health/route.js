@@ -5,6 +5,7 @@ const getBackendCandidates = () => {
   const list = [];
   if (process.env.BACKEND_URL) list.push(process.env.BACKEND_URL.replace(/\/+$/, ""));
   if (process.env.NEXT_PUBLIC_BACKEND_URL) list.push(process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, ""));
+  list.push("http://46.202.167.245:5000");
   list.push("http://127.0.0.1:5000");
   list.push("http://backend:5000");
   list.push("http://universal-backend:5000");
@@ -21,12 +22,16 @@ export async function GET() {
   for (const base of candidates) {
     try {
       const res = await fetch(`${base}/health`, {
+        headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(4000),
       });
       if (res.ok) {
-        backendData = await res.json().catch(() => null);
-        activeBackendUrl = base;
-        break;
+        const data = await res.json().catch(() => null);
+        if (data && data.backend === "online") {
+          backendData = data;
+          activeBackendUrl = base;
+          break;
+        }
       }
     } catch (e) {
       backendError = e.message;
