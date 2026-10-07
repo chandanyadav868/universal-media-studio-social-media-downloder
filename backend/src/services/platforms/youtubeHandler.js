@@ -31,51 +31,63 @@ export const youtubeHandler = {
   _getStrategies() {
     const potServer = process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
     const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
-    const hasCookies = fs.existsSync(cookiesPath);
 
-    const strategies = [
-      {
-        name: "POT-Provider + Android/Web Hybrid (Primary)",
-        args: [
-          "--js-runtimes", "node",
-          "--extractor-args", `youtubepot-bgutilhttp:base_url=${potServer};youtube:player_client=android,web`,
-        ],
-      },
-      {
-        name: "Standard Android & Web Emulation (Secondary)",
-        args: [
-          "--js-runtimes", "node",
-          "--extractor-args", "youtube:player_client=android,web",
-        ],
-      },
-      {
-        name: "iOS & Mobile Web Emulation (Tertiary)",
-        args: [
-          "--js-runtimes", "node",
-          "--extractor-args", "youtube:player_client=ios,mweb",
-        ],
-      },
-    ];
+    // Automatically sync cookies from YOUTUBE_COOKIES env variable if provided
+    if (process.env.YOUTUBE_COOKIES && process.env.YOUTUBE_COOKIES.trim().length > 10) {
+      try {
+        fs.writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES.trim(), "utf8");
+      } catch (e) {}
+    }
 
-    // Strategy: Throwaway Burner Cookies (if cookies.txt is provided)
+    const hasCookies = fs.existsSync(cookiesPath) && fs.statSync(cookiesPath).size > 10;
+    const strategies = [];
+
+    // 1. If cookies are provided, use authenticated session first
     if (hasCookies) {
       strategies.push({
-        name: "Burner Cookie Pool Authentication",
+        name: "Authenticated Cookie Session",
         args: [
+          "--force-ipv4",
           "--cookies", cookiesPath,
-          "--js-runtimes", "node",
-          "--extractor-args", "youtube:player_client=web",
+          "--extractor-args", "youtube:player_client=web,android",
         ],
       });
     }
 
-    // Strategy: IPv6 Routing Evasion
+    // 2. Smart TV & Android Client (Bypasses datacenter VPS bot challenges without cookies)
     strategies.push({
-      name: "Force IPv6 Datacenter Bypass",
+      name: "Smart TV & Android Client Evasion",
       args: [
-        "--force-ipv6",
+        "--force-ipv4",
+        "--extractor-args", "youtube:player_client=tv,android",
+      ],
+    });
+
+    // 3. Docker POT-Provider + Android/Web Hybrid
+    strategies.push({
+      name: "Docker POT-Provider Hybrid",
+      args: [
+        "--force-ipv4",
         "--js-runtimes", "node",
-        "--extractor-args", "youtube:player_client=android,web",
+        "--extractor-args", `youtubepot-bgutilhttp:base_url=${potServer};youtube:player_client=android,web`,
+      ],
+    });
+
+    // 4. iOS & Mobile Web Emulation
+    strategies.push({
+      name: "iOS & Mobile Web Emulation",
+      args: [
+        "--force-ipv4",
+        "--extractor-args", "youtube:player_client=ios,mweb",
+      ],
+    });
+
+    // 5. Standard Android Client Direct
+    strategies.push({
+      name: "Android Mobile Client Direct",
+      args: [
+        "--force-ipv4",
+        "--extractor-args", "youtube:player_client=android",
       ],
     });
 
