@@ -199,6 +199,13 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
+      // Monetag Direct Link: Opens in background tab upon successful download
+      try {
+        window.open("https://uplcm.com/4/11972780", "_blank", "noopener,noreferrer");
+      } catch (adErr) {
+        console.warn("Direct link trigger:", adErr);
+      }
+
       setPhase("completed");
     } catch (err) {
       if (err.name === "AbortError") {
