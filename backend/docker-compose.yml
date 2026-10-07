@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
   # 1. Universal Media Studio Zero-Disk Streaming Backend (Primary Service)
@@ -15,6 +15,8 @@ services:
       - NODE_ENV=production
       - POT_PROVIDER_URL=http://pot-provider:4416
       - FRONTEND_URL=https://humantalking.com
+      - YOUTUBE_COOKIES=${YOUTUBE_COOKIES:-}
+      - YTDLP_PROXY=${YTDLP_PROXY:-}
     depends_on:
       - pot-provider
     networks:

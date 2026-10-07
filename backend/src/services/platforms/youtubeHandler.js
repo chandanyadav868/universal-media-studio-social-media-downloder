@@ -21,7 +21,7 @@ const redact = (s) =>
 const getProxy = () => (process.env.YTDLP_PROXY || "").trim() || null;
 const getPotServer = () => process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
 const baseArgs = () => {
-  const args = ["--force-ipv4", "--js-runtimes", "node"];
+  const args = ["--force-ipv4"];
   const proxy = getProxy();
   if (proxy) args.push("--proxy", proxy);
   return args;
@@ -52,7 +52,7 @@ async function logEnvironmentReport(ytdlpPath) {
 
   // `yt-dlp -v` with no URL prints the debug header (version, python, plugins, runtimes) then exits
   await new Promise((resolve) => {
-    execFile(ytdlpPath, ["-v", "--js-runtimes", "node"], { timeout: 20000, maxBuffer: 5 * 1024 * 1024 }, (_err, _out, stderr) => {
+    execFile(ytdlpPath, ["-v"], { timeout: 20000, maxBuffer: 5 * 1024 * 1024 }, (_err, _out, stderr) => {
       const keep = /version|python|plugin|exe versions|js runtime|runtime|proxy|pot|bgutil|ejs/i;
       (stderr || "")
         .split("\n")
@@ -127,7 +127,12 @@ export const youtubeHandler = {
 
     if (process.env.YOUTUBE_COOKIES && process.env.YOUTUBE_COOKIES.trim().length > 10) {
       try {
-        fs.writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES.trim(), "utf8");
+        let cookieContent = process.env.YOUTUBE_COOKIES.trim();
+        if (cookieContent.includes("\\n") && !cookieContent.includes("\n")) {
+          cookieContent = cookieContent.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+        }
+        fs.writeFileSync(cookiesPath, cookieContent, "utf8");
+        log(`Wrote cookies.txt from YOUTUBE_COOKIES (${cookieContent.length} chars)`);
       } catch (e) {
         warn(`Could not write cookies.txt from YOUTUBE_COOKIES: ${e.message}`);
       }
@@ -145,6 +150,13 @@ export const youtubeHandler = {
           "--cookies", cookiesPath,
           "--extractor-args", `youtubepot-bgutilhttp:base_url=${getPotServer()}`,
           "--extractor-args", "youtube:player_client=web,mweb",
+        ],
+      });
+      strategies.push({
+        name: "Cookie Session (Web client)",
+        args: [
+          ...baseArgs(),
+          "--cookies", cookiesPath,
         ],
       });
     }
