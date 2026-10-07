@@ -93,7 +93,9 @@ export async function POST(request, { params }) {
     const contentType = backendRes.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const data = await backendRes.json();
-      return Response.json(data, { status: backendRes.status });
+      // Ensure JSON errors are passed cleanly to UI with status 200 so custom error messages render properly
+      const outStatus = data.success === false ? 200 : backendRes.status;
+      return Response.json(data, { status: outStatus });
     }
 
     const text = await backendRes.text();

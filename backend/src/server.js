@@ -166,10 +166,21 @@ app.post("/api/media/info", async (req, res) => {
       data,
     });
   } catch (error) {
-    console.error("[Backend] Info error:", error);
-    return res.status(500).json({
+    console.error("[Backend] Info error:", error.message || error);
+    const msg = error.message || "";
+    let cleanMessage = msg;
+
+    if (msg.includes("This video is unavailable") || msg.includes("Video unavailable") || msg.includes("unavailable")) {
+      cleanMessage = "This video is unavailable on YouTube (it may be private, deleted, or region-restricted).";
+    } else if (msg.includes("Private video")) {
+      cleanMessage = "This video is private. Please verify the link or privacy settings.";
+    } else if (msg.includes("Sign in to confirm your age")) {
+      cleanMessage = "This video is age-restricted on YouTube.";
+    }
+
+    return res.status(200).json({
       success: false,
-      error: error.message || "Failed to inspect video.",
+      error: cleanMessage,
     });
   }
 });
