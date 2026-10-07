@@ -102,23 +102,42 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "Universal Media Studio Streaming Backend",
-    system: getSystemDiagnostics(),
-    time: new Date().toISOString(),
-  });
+app.get("/health", async (req, res) => {
+  const statusData = await checkEngineStatus();
+  res.json(statusData);
 });
 
-app.get("/api/system/status", (req, res) => {
-  res.json({
+app.get("/api/system/status", async (req, res) => {
+  const statusData = await checkEngineStatus();
+  res.json(statusData);
+});
+
+async function checkEngineStatus() {
+  let potStatus = "offline";
+  const potUrl = process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
+  try {
+    const potRes = await fetch(`${potUrl}/ping`, { signal: AbortSignal.timeout(2000) });
+    if (potRes.ok) potStatus = "online";
+  } catch (e) {
+    try {
+      const potRes2 = await fetch("http://127.0.0.1:4416/ping", { signal: AbortSignal.timeout(2000) });
+      if (potRes2.ok) potStatus = "online";
+    } catch (e2) {}
+  }
+
+  return {
     status: "ok",
+    backend: "online",
+    service: "Universal Media Studio Streaming Backend",
+    potProvider: {
+      status: potStatus,
+      url: potUrl,
+    },
     system: getSystemDiagnostics(),
     uptimeSeconds: Math.floor(process.uptime()),
     time: new Date().toISOString(),
-  });
-});
+  };
+}
 
 /**
  * POST /api/media/info

@@ -1,42 +1,57 @@
-// Next.js Server-Side Streaming & Image API Proxy to Backend
-const getBackendBase = () => {
-  if (process.env.BACKEND_URL) {
-    return process.env.BACKEND_URL.replace(/\/$/, "");
-  }
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-    return process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/$/, "");
-  }
-  if (process.env.NODE_ENV === "production") {
-    return "http://ylpdqmjorj1ubmnm1wwagbnh.46.202.167.245.sslip.io";
-  }
-  return "http://127.0.0.1:5000";
+// Next.js Server-Side Streaming & Image API Proxy to Backend with Smart Candidate Failover
+
+const getBackendCandidates = () => {
+  const list = [];
+  if (process.env.BACKEND_URL) list.push(process.env.BACKEND_URL.replace(/\/+$/, ""));
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) list.push(process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, ""));
+  list.push("http://backend:5000");
+  list.push("http://universal-backend:5000");
+  list.push("http://127.0.0.1:5000");
+  list.push("http://localhost:5000");
+  return [...new Set(list.filter(Boolean))];
 };
+
+async function fetchWithFallback(subPath, searchParamsStr, options = {}) {
+  const candidates = getBackendCandidates();
+  let lastError = null;
+
+  for (const base of candidates) {
+    const url = searchParamsStr ? `${base}/api/image/${subPath}?${searchParamsStr}` : `${base}/api/image/${subPath}`;
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(35000),
+      });
+
+      if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
+        lastError = new Error(`Candidate ${base} returned HTTP ${res.status} HTML (Not Found / Proxy Error).`);
+        continue;
+      }
+
+      return { res, url };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw new Error(
+    `Cannot reach backend image API. Tried candidates: [${candidates.join(", ")}]. Last error: ${lastError?.message || "Unknown error"}.`
+  );
+}
 
 export async function GET(request, { params }) {
   const { searchParams } = new URL(request.url);
   const pathParts = (await params)?.path || [];
   const subPath = pathParts.join("/");
-  const targetUrl = `${getBackendBase()}/api/image/${subPath}?${searchParams.toString()}`;
 
   try {
-    const backendRes = await fetch(targetUrl, {
+    const { res: backendRes } = await fetchWithFallback(subPath, searchParams.toString(), {
       method: "GET",
       headers: {
         Accept: request.headers.get("accept") || "*/*",
       },
     });
 
-    if (!backendRes.ok && backendRes.headers.get("content-type")?.includes("text/html")) {
-      return Response.json(
-        {
-          success: false,
-          error: `Backend at ${getBackendBase()} returned HTTP ${backendRes.status} HTML. Verify backend is running.`,
-        },
-        { status: backendRes.status }
-      );
-    }
-
-    // Stream image download directly to browser
     return new Response(backendRes.body, {
       status: backendRes.status,
       headers: {
@@ -50,7 +65,7 @@ export async function GET(request, { params }) {
     return Response.json(
       {
         success: false,
-        error: `Failed to proxy image GET request to backend: ${error.message}. Target: ${targetUrl}`,
+        error: error.message,
       },
       { status: 502 }
     );
@@ -60,12 +75,11 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   const pathParts = (await params)?.path || [];
   const subPath = pathParts.join("/");
-  const targetUrl = `${getBackendBase()}/api/image/${subPath}`;
 
   try {
     const body = await request.json().catch(() => ({}));
 
-    const backendRes = await fetch(targetUrl, {
+    const { res: backendRes } = await fetchWithFallback(subPath, "", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -83,7 +97,7 @@ export async function POST(request, { params }) {
     return Response.json(
       {
         success: false,
-        error: `Backend at ${getBackendBase()} returned non-JSON (${backendRes.status}). Verify backend deployment.`,
+        error: `Backend returned non-JSON (${backendRes.status}).`,
         details: text.slice(0, 300),
       },
       { status: backendRes.status }
@@ -92,7 +106,7 @@ export async function POST(request, { params }) {
     return Response.json(
       {
         success: false,
-        error: `Cannot connect to backend at ${getBackendBase()}: ${error.message}. Please configure NEXT_PUBLIC_BACKEND_URL in Coolify.`,
+        error: error.message,
       },
       { status: 502 }
     );
