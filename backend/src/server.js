@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -116,27 +118,16 @@ app.get("/api/system/status", async (req, res) => {
 });
 
 async function checkEngineStatus() {
-  let potStatus = "offline";
-  const potUrl = process.env.POT_PROVIDER_URL || "http://pot-provider:4416";
-  try {
-    const potRes = await fetch(`${potUrl}/ping`, { signal: AbortSignal.timeout(800) });
-    if (potRes.ok) potStatus = "online";
-  } catch (e) {
-    if (potUrl !== "http://127.0.0.1:4416") {
-      try {
-        const potRes2 = await fetch("http://127.0.0.1:4416/ping", { signal: AbortSignal.timeout(400) });
-        if (potRes2.ok) potStatus = "online";
-      } catch (e2) {}
-    }
-  }
+  const cookiesPath = path.resolve(process.cwd(), "cookies.txt");
+  const hasCookies = fs.existsSync(cookiesPath) && fs.statSync(cookiesPath).size > 10;
 
   return {
     status: "ok",
     backend: "online",
     service: "Universal Media Studio Streaming Backend",
-    potProvider: {
-      status: potStatus,
-      url: potUrl,
+    auth: {
+      mode: "cookies.txt",
+      status: hasCookies ? "active" : "missing",
     },
     system: getSystemDiagnostics(),
     uptimeSeconds: Math.floor(process.uptime()),

@@ -1,7 +1,6 @@
 ﻿version: '3.8'
 
 services:
-  # 1. Universal Media Studio Zero-Disk Streaming Backend (Primary Service)
   backend:
     build:
       context: .
@@ -13,28 +12,4 @@ services:
     environment:
       - PORT=5000
       - NODE_ENV=production
-      - POT_PROVIDER_URL=http://pot-provider:4416
-      - FRONTEND_URL=https://humantalking.com
-      - YOUTUBE_COOKIES=${YOUTUBE_COOKIES:-}
-    depends_on:
-      - pot-provider
-    networks:
-      - universal-backend-net
-
-  # 2. Proof-of-Origin (PO) Token Generator Service (Internal Sidecar)
-  pot-provider:
-    image: brainicism/bgutil-ytdlp-pot-provider:latest
-    container_name: universal-pot-provider
-    restart: always
-    expose:
-      - "4416"
-    ports:
-      - "4416:4416"
-    environment:
-      - PORT=4416
-    networks:
-      - universal-backend-net
-
-networks:
-  universal-backend-net:
-    driver: bridge
+      - FRONTEND_URL=https://socialmediadownloader.humantalking.com,https://humantalking.com

@@ -1,6 +1,6 @@
 ﻿# ===================================================================
 # UNIVERSAL MEDIA STUDIO - BACKEND PRODUCTION DOCKERFILE
-# Node.js 20 + Python 3 + FFmpeg + Deno/QuickJS (YouTube JS challenges) + yt-dlp + bgutil PO plugin
+# Node.js 20 + Python 3 + FFmpeg + Deno (EJS challenges) + yt-dlp + cookies.txt
 # ===================================================================
 
 FROM node:20-bookworm-slim
@@ -19,8 +19,8 @@ RUN curl -fsSL https://deno.land/install.sh | sh
 ENV DENO_INSTALL="/root/.deno"
 ENV PATH="$DENO_INSTALL/bin:$PATH"
 
-# Install latest yt-dlp and bgutil PO-token plugin
-RUN pip install --no-cache-dir --break-system-packages -U "yt-dlp[default]" bgutil-ytdlp-pot-provider \
+# Install latest yt-dlp
+RUN pip install --no-cache-dir --break-system-packages -U "yt-dlp[default]" \
     && yt-dlp --version \
     && deno --version
 
