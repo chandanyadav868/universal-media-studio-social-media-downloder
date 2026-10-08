@@ -118,15 +118,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body suppressHydrationWarning className="min-h-screen flex flex-col bg-[#080c15] text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white relative">
-        {/* Left Desktop Sticky Skyscraper (160x600) */}
-        <div className="hidden 2xl:block fixed left-3 top-28 z-20">
-          <AdsterraBanner type="skyscraper" />
-        </div>
 
-        {/* Right Desktop Sticky Skyscraper (160x300) */}
-        <div className="hidden 2xl:block fixed right-3 top-28 z-20">
-          <AdsterraBanner type="skyscraperSmall" />
-        </div>
         {/* Dynamic Route-Aware Navigation Bar */}
         <Navbar />
 
@@ -143,11 +135,7 @@ export default function RootLayout({ children }) {
         {/* Comprehensive AdSense-Approved & SEO Compliant Footer */}
         <Footer />
 
-        {/* Adsterra Social Bar (High-CTR Web Alerts / Top Bar) */}
-        <script
-          type="text/javascript"
-          src="https://pl28737566.profitableratecpmnetwork.com/7b/ce/44/7bce44372b81a880c31e685cb19940e4.js"
-        />
+
 
         {/* Non-Intrusive GDPR & AdSense Compliant Cookie Consent */}
         <CookieConsent />

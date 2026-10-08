@@ -16,6 +16,7 @@ export default function MediaStudio() {
   const [error, setError] = useState("");
   const [mediaData, setMediaData] = useState(null);
   const [activeFeature, setActiveFeature] = useState(FEATURE_MAP.default);
+  const [adRefreshKey, setAdRefreshKey] = useState(0);
 
   // Download Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -73,6 +74,11 @@ export default function MediaStudio() {
     window.addEventListener("hashchange", handleHashSync);
     return () => window.removeEventListener("hashchange", handleHashSync);
   }, []);
+
+  // Trigger fresh ad reload whenever route/hash/platform changes
+  useEffect(() => {
+    setAdRefreshKey((prev) => prev + 1);
+  }, [activeFeature]);
 
   const handleHashSelect = (targetHash) => {
     if (typeof window !== "undefined") {
@@ -158,7 +164,7 @@ export default function MediaStudio() {
       />
 
       {/* Top Responsive Adsterra Leaderboard Banner */}
-      <AdsterraBanner type="leaderboard" showSmartlink={true} smartlinkLabel="🚀 Ultra-Fast Cloud Acceleration • Partner Mirror" className="mb-4 w-full" />
+      <AdsterraBanner key={"top-ad-" + adRefreshKey} type="leaderboard" showSmartlink={true} smartlinkLabel="⚡ Ultra-Fast Cloud Acceleration • Partner Mirror" refreshKey={adRefreshKey} className="mb-4 w-full" />
 
       {/* Hero Glass Box Wrapper */}
       <div className="w-full relative group">
@@ -357,8 +363,9 @@ export default function MediaStudio() {
                 <Film size={20} className="text-blue-400" />
                 <span>Available Download Formats</span>
               </h3>
+              {/* Top Tier High-Definition Formats (First 3 Cards: 1080p, 720p, 480p) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {mediaData.formats.map((fmt, idx) => (
+                {mediaData.formats.slice(0, 3).map((fmt, idx) => (
                   <FormatCard
                     key={idx}
                     format={fmt}
@@ -367,8 +374,38 @@ export default function MediaStudio() {
                 ))}
               </div>
 
-              {/* Native Recommendations Widget */}
-              <AdsterraBanner type="native" className="mt-6" />
+              {/* Mid-Grid In-Feed Ad Placement (Directly between output tiers for highest CTR) */}
+              <div className="my-5 w-full flex flex-col items-center">
+                <AdsterraBanner
+                  key={"mid-ad-" + adRefreshKey}
+                  type="leaderboard"
+                  refreshKey={adRefreshKey}
+                  showSmartlink={true}
+                  smartlinkLabel="⚡ Direct High-Speed Cloud Mirror (Fast Download)"
+                  className="w-full"
+                />
+              </div>
+
+              {/* Standard & Audio Formats (Remaining Cards: 360p, 240p, MP3 Audio) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {mediaData.formats.slice(3).map((fmt, idx) => (
+                  <FormatCard
+                    key={idx + 3}
+                    format={fmt}
+                    onDownloadClick={handleDownloadClick}
+                  />
+                ))}
+              </div>
+
+              {/* Post-Output Action Ad (Directly below final download cards) */}
+              <div className="mt-6 w-full">
+                <AdsterraBanner
+                  key={"native-ad-" + adRefreshKey}
+                  type="native"
+                  refreshKey={adRefreshKey}
+                  className="w-full"
+                />
+              </div>
             </div>
           </motion.div>
         )}
