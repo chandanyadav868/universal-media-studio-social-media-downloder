@@ -1,6 +1,6 @@
-# ===================================================================
+﻿# ===================================================================
 # UNIVERSAL MEDIA STUDIO - BACKEND PRODUCTION DOCKERFILE
-# Node.js 20 + Python 3 + FFmpeg + yt-dlp[default] (EJS challenge solver) + bgutil PO-token plugin
+# Node.js 20 + Python 3 + FFmpeg + Deno/QuickJS (YouTube JS challenges) + yt-dlp + bgutil PO plugin
 # ===================================================================
 
 FROM node:20-bookworm-slim
@@ -11,13 +11,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     ca-certificates \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# yt-dlp[default] pulls in yt-dlp-ejs (needed to solve YouTube JS challenges).
-# bgutil-ytdlp-pot-provider is the plugin that fetches PO tokens from the pot-provider container.
-# Both must be installed with pip into the same Python so the plugin is discovered.
+# Install Deno as the official, high-performance JS runtime for yt-dlp EJS challenges
+RUN curl -fsSL https://deno.land/install.sh | sh
+ENV DENO_INSTALL="/root/.deno"
+ENV PATH="$DENO_INSTALL/bin:$PATH"
+
+# Install latest yt-dlp and bgutil PO-token plugin
 RUN pip install --no-cache-dir --break-system-packages -U "yt-dlp[default]" bgutil-ytdlp-pot-provider \
-    && yt-dlp --version
+    && yt-dlp --version \
+    && deno --version
 
 WORKDIR /app
 
