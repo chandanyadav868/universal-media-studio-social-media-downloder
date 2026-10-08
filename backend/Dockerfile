@@ -31,6 +31,9 @@ RUN npm ci || npm install
 
 COPY . .
 
+# Protect cookies.txt from being truncated by yt-dlp during runtime
+RUN chmod 444 /app/cookies.txt
+
 ENV PORT=5000
 ENV NODE_ENV=production
 

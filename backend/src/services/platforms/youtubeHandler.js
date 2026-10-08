@@ -46,7 +46,10 @@ async function logEnvironmentReport(ytdlpPath) {
 
   log("================ ENVIRONMENT REPORT ================");
   log(`yt-dlp binary: ${ytdlpPath}`);
-  log(`cookies.txt path: ${cookiesPath} (Present: ${hasCookies ? `YES, ${fs.statSync(cookiesPath).size} bytes` : "NO"})`);
+  const cookieContent = hasCookies ? fs.readFileSync(cookiesPath, "utf8") : "";
+  const hasLoginInfo = cookieContent.includes("LOGIN_INFO");
+  const hasSid = cookieContent.includes("SID");
+  log(`cookies.txt path: ${cookiesPath} (${hasCookies ? `${fs.statSync(cookiesPath).size} bytes, LOGIN_INFO: ${hasLoginInfo ? "YES" : "NO"}, SID: ${hasSid ? "YES" : "NO"}` : "MISSING"})`);
 
   try {
     const r = await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(4000) });
