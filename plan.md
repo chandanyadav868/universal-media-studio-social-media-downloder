@@ -1,58 +1,89 @@
-﻿# Root Cause Analysis & Plan: YouTube Cookie Authentication Failure
+﻿# Implementation Plan: Docker UI Removal & High-CTR Adsterra Monetization Strategy
 
-## 1. Executive Summary & Root Cause
+## Overview
 
-The user encountered the following error on Coolify production:
-```
-[YouTubeHandler] cookies.txt path: /app/cookies.txt (Present: YES, 1580 bytes)
-[YouTubeHandler] Vd6d7Cn9tTA: web player response playability status: LOGIN_REQUIRED
-[YouTubeHandler] ERROR: [youtube] Vd6d7Cn9tTA: Sign in to confirm you’re not a bot.
-```
-
-### The Root Cause: "The 1,580-Byte Cookie Stripping Bug"
-1. The user initially provided a full **3,253-byte** Netscape cookie file containing all critical Google authentication tokens:
-   - `LOGIN_INFO` (The primary token verifying an active logged-in YouTube session)
-   - `SID`, `HSID`, `SSID`, `APISID`, `SAPISID` (Core Google account identity credentials)
-   - `__Secure-1PSID`, `__Secure-1PSIDCC`, `__Secure-1PAPISID`
-2. When `yt-dlp --cookies backend/cookies.txt` was executed, `yt-dlp` (via Python's `http.cookiejar`) **rewrote and pruned the file on disk upon exit**.
-3. It stripped away `LOGIN_INFO`, `SID`, `HSID`, `SSID`, `APISID`, and `__Secure-1PSID`, shrinking the file from **3,253 bytes down to 1,580 bytes**!
-4. The Git commit `ac2c833` mistakenly committed this degraded 1,580-byte file (diff confirms line-by-line deletion of `LOGIN_INFO` and `SID`).
-5. As a result, when the production container loaded `/app/cookies.txt`, it was running with **zero login credentials**, causing YouTube to return `LOGIN_REQUIRED: Sign in to confirm you're not a bot`.
+This plan addresses two user requirements:
+1. **Clean up Docker indicators**: Remove the "Docker: Standby / Active" button from the Navbar and all related status modal code from frontend and backend.
+2. **Adsterra Monetization Strategy**: Design high-CTR ad placements on `https://humantalking.com`, determine which Adsterra units to check/uncheck to prevent user entrapment while maximizing click-through rate (CTR), and create reusable ad container placeholders.
 
 ---
 
-## 2. Proper Way to Pass Cookies to `yt-dlp` (Official Documentation Review)
+## Part 1: Docker UI & Status Code Removal
 
-According to the official `yt-dlp` documentation ([yt-dlp FAQ & Extractor Guide](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies)):
-
-1. **Required Token Keys:**
-   - `LOGIN_INFO`: Must be present and intact.
-   - `SID` & `__Secure-1PSID`: Must match the Google session ID.
-   - `VISITOR_INFO1_LIVE`: Visitor session identity.
-2. **Preventing Cookie File Degradation:**
-   - By default, `yt-dlp` writes modified session cookies back to the file specified in `--cookies`.
-   - In a multi-user server environment, multiple parallel `yt-dlp` processes reading and writing to the same `/app/cookies.txt` corrupts or strips tokens.
-   - **Fix:** Set file permissions to read-only (`chmod 444 /app/cookies.txt`) so `yt-dlp` uses the cookies in memory and is prevented from truncating `LOGIN_INFO` on disk!
-3. **Client Strategy Order for Authenticated Sessions:**
-   - Strategy 1: Standard Web client with intact cookies.
-   - Strategy 2: Mobile Web (`mweb`) with intact cookies.
-   - Strategy 3: TV / Android client fallback.
+### Files to Modify:
+1. **`frontend/components/Navbar.jsx`**:
+   - Remove the `Docker: Active / Standby` pill button from the top right.
+   - Remove the `statusModalOpen` state and `engineStatus` polling `/api/health`.
+   - Remove the `SystemStatusModal` import and modal render.
+2. **`frontend/components/MediaStudio.jsx`**:
+   - In the error alert banner, remove the `[Check Docker & Backend Status]` button.
+   - Remove `SystemStatusModal` import and state.
+3. **`frontend/components/SystemStatusModal.jsx`**:
+   - Safely remove or deprecate this modal since it is no longer referenced.
 
 ---
 
-## 3. Step-by-Step Implementation Plan
+## Part 2: Adsterra Ad Unit Selection Guide (Check vs. Uncheck)
 
-### Phase 1: Restore Pristine Cookies File
-- Re-write `backend/cookies.txt` with the complete, un-stripped 3,253-byte Netscape cookie dataset including `LOGIN_INFO`, `SID`, `HSID`, `SSID`, and `SAPISID`.
+Based on your Adsterra dashboard screenshot for **Category: Downloads**:
 
-### Phase 2: Protect Cookie File from Overwriting
-- In `backend/Dockerfile`:
-  - Run `chmod 444 /app/cookies.txt` to make it read-only.
-- In `backend/src/services/platforms/youtubeHandler.js`:
-  - Add cookie file integrity check (verify `LOGIN_INFO` is present and log its presence).
-  - Ensure `--cookies` points to the intact master file.
+| Ad Unit | Action | Why? (User Experience & Click Revenue) |
+| :--- | :---: | :--- |
+| **Popunder [TOP]** | ❌ **UNCHECK** | **Do NOT use.** Popunders trigger full-screen window redirects on *any* click (even clicking the search bar or paste button). Users feel "trapped", think the site has malware, and immediately leave. |
+| **Smartlink** | ❌ **UNCHECK** | **Do NOT check in website form.** Smartlinks redirect whole pages. It breaks the download workflow if attached globally. |
+| **Social Bar [TOP]** | ✅ **CHECK (MUST USE)** | **Highest CTR in the industry (up to 30x higher than regular banners).** Shows non-intrusive interactive push bubbles or subtle alert bars (e.g. "Cloud Boost Ready", "High Speed Available"). Users click willingly. |
+| **Native Banner** | ✅ **CHECK (MUST USE)** | **Extreme CTR on Download Sites.** Blends seamlessly into your page like download buttons or recommended software tools. Generates the most legitimate clicks. |
+| **Banner (300x250)** | ✅ **CHECK (TOP PRIORITY)** | **Highest paying display banner.** Fits perfectly between format cards (1080p / 720p) and inside the Download Modal during countdown. |
+| **Banner (728x90)** | ✅ **CHECK** | Standard desktop leaderboard banner for top header and bottom footer. |
+| **Banner (320x50)** | ✅ **CHECK** | Standard mobile banner for smartphone screens. |
+| **Banner (468x60 / 160x600)** | ✅ **CHECK** | Tablet banners and desktop skyscraper sidebar banners. |
 
-### Phase 3: Verification & Deployment
-- Test `yt-dlp` using a non-destructive read command.
-- Commit `backend/cookies.txt`, `backend/Dockerfile`, and `youtubeHandler.js`.
-- Push to GitHub `origin/main` for Coolify redeployment.
+---
+
+## Part 3: High-CTR Ad Placement Strategy (Where to Place Ads for Maximum Clicks)
+
+Since you only get paid **when users click on the ads (CPC)**, ads must be placed where users are actively looking, waiting, or clicking with download intent:
+
+### 📍 Placement 1: Top Leaderboard (`728x90` Desktop / `320x50` Mobile)
+* **Location:** Directly below the navigation header, above the main search bar.
+* **Purpose:** 100% viewability on initial page load.
+
+### 📍 Placement 2: High-Intent "In-Between Format Cards" (`300x250` or Native Banner)
+* **Location:** When a user clicks "Fetch Video", format options appear (1080p, 720p, 480p, MP3).
+* **Strategy:** Insert a high-CTR **Sponsored Download Card** between the 1st format (1080p) and 2nd format (720p).
+* **Why it gets clicks:** Users have active "download intent" and are scanning format cards; their eyes and cursor naturally hover over this placement.
+
+### 📍 Placement 3: Inside the Download Modal (`300x250` Medium Rectangle)
+* **Location:** Inside `DownloadModal.jsx` during the **5-second auto-start countdown** and the **active streaming phase**.
+* **Strategy:** The user is focused on the modal waiting for the countdown timer and progress bar. Placing a clear `300x250` ad here yields the highest engagement.
+
+### 📍 Placement 4: Route / Tab Change Interstitial Banner
+* **Location:** When switching between **"Video & Audio"** (`/`) and **"Images & Posts"** (`/image-downloader`), or switching social platform chips (YouTube ➔ Instagram ➔ TikTok).
+* **Strategy:** Renders a clean transition banner above the new tab's content.
+
+### 📍 Placement 5: Bottom Native Recommendation Grid (4x1 / 2x2)
+* **Location:** Above the Footer, below the Feature explanation section.
+* **Strategy:** 4 native widget cards offering recommended tools, software, or partner downloads.
+
+---
+
+## Part 4: Component Architecture & Implementation Details
+
+1. **`frontend/lib/adsterraConfig.js`**:
+   - Central configuration file containing Adsterra script keys, Zone IDs, and ad slot dimensions.
+   - Easy for you to paste real Adsterra script codes whenever they are generated.
+2. **`frontend/components/AdsterraBanner.jsx`**:
+   - Universal ad container handling all sizes: `728x90`, `300x250`, `320x50`, `468x60`, `native`, `social-bar`.
+   - Supports live script injection or interactive visual placeholder preview mode.
+3. **`frontend/components/DownloadModal.jsx`**:
+   - Embeds `300x250` banner in the choice countdown screen and streaming screen.
+4. **`frontend/components/MediaStudio.jsx`**:
+   - Injects the in-between format ad card and top leaderboard ad.
+
+---
+
+## Review & Approval
+
+Please review this plan. Upon your confirmation, I will execute the implementation:
+1. Remove all Docker indicators and modals from Navbar and MediaStudio.
+2. Build `AdsterraBanner.jsx` and insert the high-CTR ad placements across the application.

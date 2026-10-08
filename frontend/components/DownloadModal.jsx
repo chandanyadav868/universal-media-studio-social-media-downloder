@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import AdBanner from "./AdBanner";
+import AdsterraBanner from "./AdsterraBanner";
 import { Download, Clock, X, CheckCircle, Zap, AlertCircle, Film, Music } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -457,7 +457,7 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
 
             {/* In-Modal Ad Slot */}
             <div className="mt-4 pt-4 border-t border-slate-800/80">
-              <AdBanner slot="9876543210" format="rectangle" />
+              <AdsterraBanner type="rectangle" showSmartlink={true} smartlinkLabel="🚀 Fast Cloud Acceleration (Partner Mirror)" />
             </div>
           </motion.div>
         </motion.div>

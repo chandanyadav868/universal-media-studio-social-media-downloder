@@ -1,4 +1,5 @@
 import MediaStudio from "../components/MediaStudio";
+import AdsterraBanner from "../components/AdsterraBanner";
 import { 
   Copy, Sparkles, Download, HelpCircle, ShieldCheck, Zap, 
   Film, Music, Layers, CheckCircle2, Lock, Smartphone, Globe
@@ -268,6 +269,11 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* High-CTR Native Recommendation Grid (3:1 Native Banner) */}
+        <section className="mb-12">
+          <AdsterraBanner type="native3x1" />
         </section>
 
         {/* Section 4: Comprehensive FAQ */}

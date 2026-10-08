@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import AdBanner from "./AdBanner";
+import AdsterraBanner from "./AdsterraBanner";
 import PlatformFeatureHeader from "./PlatformFeatureHeader";
 import { getFeatureConfig, FEATURE_MAP } from "../lib/featureMap";
 import { safeFetchJson, buildImageDownloadUrl } from "../lib/api";
@@ -127,7 +127,7 @@ export default function ImageStudio({ activeFeature: propFeature, onSelectHash: 
   return (
     <div className="flex flex-col gap-6 sm:gap-8 w-full max-w-5xl mx-auto">
       {/* Top Banner Ad */}
-      <AdBanner slot="1111222233" format="horizontal" />
+      <AdsterraBanner type="leaderboard" showSmartlink={true} smartlinkLabel="Direct High-Speed Cloud Mirror" />
 
       {/* Input Form Glass Panel */}
       <div className="bg-slate-900/70 border border-slate-800/80 rounded-3xl p-4 sm:p-7 shadow-2xl backdrop-blur-xl">
@@ -256,7 +256,7 @@ export default function ImageStudio({ activeFeature: propFeature, onSelectHash: 
             </div>
 
             {/* In-Feed Ad Banner */}
-            <AdBanner slot="3333444455" format="horizontal" />
+            <AdsterraBanner type="leaderboard" />
 
             {/* Extracted Images Grid */}
             <div>
@@ -358,7 +358,7 @@ export default function ImageStudio({ activeFeature: propFeature, onSelectHash: 
       </AnimatePresence>
 
       {/* Bottom Ad Banner */}
-      <AdBanner slot="5555666677" format="horizontal" />
+      <AdsterraBanner type="native3x1" />
     </div>
   );
 }

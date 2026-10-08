@@ -3,13 +3,12 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import FormatCard from "./FormatCard";
 import DownloadModal from "./DownloadModal";
-import AdBanner from "./AdBanner";
+import AdsterraBanner from "./AdsterraBanner";
 import PlatformFeatureHeader from "./PlatformFeatureHeader";
 import ImageStudio from "./ImageStudio";
 import { getFeatureConfig, FEATURE_MAP } from "../lib/featureMap";
 import { safeFetchJson, buildStreamUrl } from "../lib/api";
 import { Search, Clipboard, X, Loader2, Sparkles, ShieldCheck, Zap, Film, CheckCircle2, Activity, Clock } from "lucide-react";
-import SystemStatusModal from "./SystemStatusModal";
 
 export default function MediaStudio() {
   const [url, setUrl] = useState("");
@@ -22,7 +21,6 @@ export default function MediaStudio() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState(null);
   const [downloadStreamUrl, setDownloadStreamUrl] = useState("");
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [inspectTimer, setInspectTimer] = useState(0);
 
   // Live timer for user feedback while inspecting media
@@ -159,6 +157,9 @@ export default function MediaStudio() {
         onSelectHash={handleHashSelect}
       />
 
+      {/* Top Responsive Adsterra Leaderboard Banner */}
+      <AdsterraBanner type="leaderboard" showSmartlink={true} smartlinkLabel="🚀 Ultra-Fast Cloud Acceleration • Partner Mirror" className="mb-4 w-full" />
+
       {/* Hero Glass Box Wrapper */}
       <div className="w-full relative group">
         <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/30 via-indigo-600/20 to-purple-600/30 rounded-3xl blur-xl opacity-75 group-hover:opacity-100 transition duration-500" />
@@ -282,14 +283,7 @@ export default function MediaStudio() {
                     <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                     <span>{error}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setStatusModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-bold shrink-0 cursor-pointer transition-colors border border-rose-500/30"
-                  >
-                    <Activity size={13} />
-                    <span>Check Docker & Backend Status</span>
-                  </button>
+                  
                 </motion.div>
               )}
             </AnimatePresence>
@@ -355,7 +349,7 @@ export default function MediaStudio() {
             </div>
 
             {/* In-Feed Ad Banner */}
-            <AdBanner slot="3333444455" format="horizontal" />
+            <AdsterraBanner type="leaderboard" className="my-5" />
 
             {/* Available Quality Formats Grid */}
             <div className="w-full">
@@ -372,14 +366,16 @@ export default function MediaStudio() {
                   />
                 ))}
               </div>
+
+              {/* Native Recommendations Widget */}
+              <AdsterraBanner type="native" className="mt-6" />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 5-Second Countdown Gate Modal with Video/Audio Choice & Live Progress Bar */}
-      <SystemStatusModal isOpen={statusModalOpen} onClose={() => setStatusModalOpen(false)} />
-      <DownloadModal
+            <DownloadModal
         isOpen={modalOpen}
         format={selectedFormat}
         targetDownloadUrl={downloadStreamUrl}
