@@ -8,7 +8,7 @@ import PlatformFeatureHeader from "./PlatformFeatureHeader";
 import ImageStudio from "./ImageStudio";
 import { getFeatureConfig, FEATURE_MAP } from "../lib/featureMap";
 import { safeFetchJson, buildStreamUrl } from "../lib/api";
-import { Search, Clipboard, X, Loader2, Sparkles, ShieldCheck, Zap, Film, CheckCircle2, Activity } from "lucide-react";
+import { Search, Clipboard, X, Loader2, Sparkles, ShieldCheck, Zap, Film, CheckCircle2, Activity, Clock } from "lucide-react";
 import SystemStatusModal from "./SystemStatusModal";
 
 export default function MediaStudio() {
@@ -23,6 +23,45 @@ export default function MediaStudio() {
   const [selectedFormat, setSelectedFormat] = useState(null);
   const [downloadStreamUrl, setDownloadStreamUrl] = useState("");
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [inspectTimer, setInspectTimer] = useState(0);
+
+  // Live timer for user feedback while inspecting media
+  useEffect(() => {
+    let interval = null;
+    if (loading) {
+      setInspectTimer(0);
+      interval = setInterval(() => {
+        setInspectTimer((t) => t + 1);
+      }, 1000);
+    } else {
+      setInspectTimer(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loading]);
+
+  const getInspectionStage = (seconds) => {
+    if (seconds < 3) {
+      return {
+        title: "Connecting to media stream engine...",
+        detail: "Verifying link integrity and connecting to platform CDN.",
+        progress: Math.min(35, 12 + seconds * 10),
+      };
+    }
+    if (seconds < 7) {
+      return {
+        title: "Authenticating session & solving bot challenges...",
+        detail: "Running Deno challenge solver and validating secure Google tokens.",
+        progress: Math.min(75, 40 + (seconds - 3) * 9),
+      };
+    }
+    return {
+      title: "Assembling high-definition video & audio profiles...",
+      detail: "Extracting full 1080p/4K DASH codecs and high-bitrate 320kbps audio channels.",
+      progress: Math.min(95, 78 + (seconds - 7) * 3),
+    };
+  };
 
   // Sync state with URL #hash
   useEffect(() => {
@@ -179,6 +218,56 @@ export default function MediaStudio() {
                 )}
               </motion.button>
             </div>
+
+            {/* Live Inspection Feedback & Progress Indicator */}
+            <AnimatePresence>
+              {loading && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  className="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-950/70 via-indigo-950/60 to-purple-950/70 border border-blue-500/40 backdrop-blur-xl shadow-xl flex flex-col gap-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 animate-pulse">
+                        <Loader2 size={18} className="animate-spin text-blue-400" />
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                          {getInspectionStage(inspectTimer).title}
+                        </div>
+                        <div className="text-[11px] sm:text-xs text-slate-300">
+                          {getInspectionStage(inspectTimer).detail}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 font-mono text-xs font-semibold">
+                        <Clock size={12} />
+                        <span>{inspectTimer}s</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 hidden sm:inline">
+                        (Est. 4–8s)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Animated Progress Bar */}
+                  <div className="w-full h-2 bg-slate-950/80 rounded-full p-0.5 border border-blue-500/20 overflow-hidden shadow-inner">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-purple-400 rounded-full transition-all duration-300 shadow-md shadow-blue-500/50"
+                      style={{ width: `${getInspectionStage(inspectTimer).progress}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <span>⚡ Zero-disk high-bitrate stream extraction</span>
+                    <span>Please hold on a moment...</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Error Message Alert */}
             <AnimatePresence>

@@ -328,43 +328,76 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
             )}
 
             {/* PHASE 2: Live In-Memory Streaming Progress */}
-            {phase === "streaming" && (
-              <div className="py-2">
-                <div className={`w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center animate-pulse ${
-                  currentDownloadType === "audio" ? "bg-pink-500/20 text-pink-400" : "bg-blue-500/20 text-blue-400"
-                }`}>
-                  <Zap size={28} />
-                </div>
+            {phase === "streaming" && (() => {
+              const speedVal = parseFloat(speedMBs) || 0;
+              const loadedVal = parseFloat(loadedMB) || 0;
+              const totalVal = parseFloat(displayTotalMB) || 50;
+              const remainingMB = Math.max(0, totalVal - loadedVal);
+              const estimatedSecLeft = speedVal > 0 ? Math.ceil(remainingMB / speedVal) : null;
 
-                <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-1">
-                  Downloading {currentDownloadType === "audio" ? "Audio Track" : `${format?.resolution || "1080p"} Video`}
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-400 mb-5">
-                  Zero-disk in-memory stream active • <span className="font-semibold text-white">{speedMBs} MB/s</span>
-                </p>
+              return (
+                <div className="py-2">
+                  <div className={`w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center animate-pulse ${
+                    currentDownloadType === "audio" ? "bg-pink-500/20 text-pink-400" : "bg-blue-500/20 text-blue-400"
+                  }`}>
+                    <Zap size={28} />
+                  </div>
 
-                {/* Modern Track Progress Bar */}
-                <div className="h-4 bg-slate-950/80 rounded-full p-0.5 border border-slate-800 overflow-hidden mb-2 shadow-inner">
-                  <motion.div
-                    className={`h-full rounded-full transition-all duration-150 ${
-                      currentDownloadType === "audio"
-                        ? "bg-gradient-to-r from-pink-500 to-rose-400"
-                        : "bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400"
-                    }`}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-1">
+                    Downloading {currentDownloadType === "audio" ? "Audio Track" : `${format?.resolution || "1080p"} Video`}
+                  </h3>
 
-                <div className="flex justify-between items-center text-xs text-slate-400 mb-4 px-1">
-                  <span>
-                    <strong className="text-white">{loadedMB} MB</strong> / {displayTotalMB} MB
-                  </span>
-                  <span className={`font-bold ${currentDownloadType === "audio" ? "text-pink-400" : "text-blue-400"}`}>
-                    {progressPercent}%
-                  </span>
+                  {/* Live Status with Estimated Time */}
+                  <div className="text-xs sm:text-sm text-slate-300 mb-4 min-h-[22px]">
+                    {loadedVal === 0 ? (
+                      <span className="text-blue-400 font-medium inline-flex items-center gap-1.5 animate-pulse">
+                        <Clock size={13} />
+                        <span>Allocating stream slot & remuxing DASH stream... (Please wait ~4–8s)</span>
+                      </span>
+                    ) : (
+                      <span>
+                        Zero-disk stream active •{" "}
+                        <span className="font-semibold text-white">{speedMBs} MB/s</span>
+                        {estimatedSecLeft !== null && (
+                          <span className="text-blue-300 ml-1.5 font-mono">
+                            (Est. ~{estimatedSecLeft}s remaining)
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Modern Track Progress Bar */}
+                  <div className="h-4 bg-slate-950/80 rounded-full p-0.5 border border-slate-800 overflow-hidden mb-2 shadow-inner">
+                    <motion.div
+                      className={`h-full rounded-full transition-all duration-150 ${
+                        currentDownloadType === "audio"
+                          ? "bg-gradient-to-r from-pink-500 to-rose-400"
+                          : "bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400"
+                      }`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-4 px-1">
+                    <span>
+                      <strong className="text-white">{loadedMB} MB</strong> / {displayTotalMB} MB
+                    </span>
+                    <span className={`font-bold ${currentDownloadType === "audio" ? "text-pink-400" : "text-blue-400"}`}>
+                      {progressPercent}%
+                    </span>
+                  </div>
+
+                  {/* Informational Guidance Box */}
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] sm:text-xs text-slate-400 flex items-start gap-2 text-left mb-2">
+                    <Clock size={14} className="text-blue-400 shrink-0 mt-0.5" />
+                    <span>
+                      Direct in-memory zero-disk pipeline combines video and stereo audio on the fly. Please keep this window open until complete.
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* PHASE 3: Completed Screen */}
             {phase === "completed" && (
