@@ -1,5 +1,6 @@
 import MediaStudio from "../components/MediaStudio";
 import AdsterraBanner from "../components/AdsterraBanner";
+import OwnProductPromo from "../components/OwnProductPromo";
 import { 
   Copy, Sparkles, Download, HelpCircle, ShieldCheck, Zap, 
   Film, Music, Layers, CheckCircle2, Lock, Smartphone, Globe
@@ -97,6 +98,16 @@ export default function HomePage() {
 
       {/* Main Interactive Downloader Studio Component */}
       <MediaStudio />
+
+      {/* High-CTR Native Recommendation Grid (Placed directly below input, above Effortless Workflow) */}
+      <div className="w-full max-w-5xl mx-auto my-8">
+        <AdsterraBanner type="native3x1" />
+      </div>
+
+      {/* Featured Sister Tool: Own Product Cross-Promotion */}
+      <div className="w-full max-w-5xl mx-auto mb-8">
+        <OwnProductPromo />
+      </div>
 
       {/* Crawlable High-Authority Content Layer (800+ Words for SEO Indexing) */}
       <article className="w-full max-w-4xl mx-auto mt-16 sm:mt-24 pt-10 sm:pt-14 border-t border-slate-800/80">
@@ -271,10 +282,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* High-CTR Native Recommendation Grid (3:1 Native Banner) */}
-        <section className="mb-12">
-          <AdsterraBanner type="native3x1" />
-        </section>
+
 
         {/* Section 4: Comprehensive FAQ */}
         <section className="mb-16">

@@ -70,3 +70,14 @@
 .marquee-track:hover {
   animation-play-state: paused;
 }
+
+/* Suppress floating push toasts covering the header/menu on mobile and tablet */
+@media (max-width: 1023px) {
+  [class*="inpage"],
+  [id*="inpage"],
+  [class*="toast"],
+  div[style*="z-index: 2147483647"],
+  div[style*="z-index: 9999999"] {
+    display: none !important;
+  }
+}

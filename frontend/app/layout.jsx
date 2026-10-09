@@ -98,10 +98,10 @@ export default function RootLayout({ children }) {
           strategy="lazyOnload"
         />
 
-                {/* Monetag In-Page Push (Non-blocking toast banners) */}
+                {/* Monetag In-Page Push (Only loaded on Desktop >= 1024px to prevent covering mobile/tablet menus) */}
         <script
           dangerouslySetInnerHTML={{
-            __html: "(function(s){s.dataset.zone='11973493',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
+            __html: "if (typeof window !== 'undefined' && window.innerWidth >= 1024) { (function(s){s.dataset.zone='11973493',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script'))); }"
           }}
         />
 

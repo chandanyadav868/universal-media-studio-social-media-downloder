@@ -1,79 +1,101 @@
-# Comprehensive Plan: Dynamic Hash-Based Ad Refresh, Grid Re-Structuring & Collision Fixes
+# Implementation Plan: Mobile Push Ad Suppression, Native Ad Re-Positioning & Own Product Cross-Promotion
 
-## 1. Overview & Objectives
+## 1. Executive Summary & Root Cause Analysis
 
-Based on your audio feedback and screenshots:
-1. **Dynamic Hash / Route Re-rendering**: When users click platform buttons above the input (`#youtubevideodownloader`, `#instagram`, `#facebook`, `#tiktok`, etc.), trigger a `useEffect` that re-renders and refreshes all ads with new creatives.
-2. **Remove Left/Right Skyscraper Ads**: The fixed side skyscraper banner (`160x600`) shown on the left is creating an empty black rectangle with a broken image icon. Completely remove these side slider ads.
-3. **Resolve Overlapping Pop-ups**: In the top-right corner, Monetag notifications and the Adsterra Social Bar are popping up over each other. Remove the Adsterra Social Bar pop-up script as requested.
-4. **Remove "Advertisement" & "Sponsored Recommendations" Badges**: Strip out the conspicuous labels (`ADVERTISEMENT`, `SPONSORED RECOMMENDATIONS`) so ads look clean and blend naturally with the site.
-5. **Restructure Output Format Cards Grid**:
-   - Instead of placing ads far below at the footer, place them **directly inside and around the real output**:
-     - Render the first 3 format cards (e.g., 1080p, 720p, 480p).
-     - Render an in-feed ad card right between card 3 and card 4 (or a high-impact horizontal banner dividing the tiers).
-     - Render the remaining format cards (e.g., 360p, 240p, MP3 Audio).
-     - Render a second high-converting native ad directly beneath the final download card.
-6. **Graceful Loading (No Empty Black Boxes / Broken Icons)**:
-   - Remove the hardcoded dark background (`bg-slate-950/70 border border-slate-800/80`) and broken icon borders so that if an ad is loading or unfulfilled, no black hole or broken image icon is shown.
+Based on your audio recordings and screenshots:
+
+### Issue 1: Mobile Header Covered by Stacked Pop-Up Toasts (Screenshot 1 & Audio 1)
+- **Problem**: On mobile screens, two stacked push notification ads (*"Spin and Win Huge Prize!"* and *"JACKPOT WINNER OF THE DAY"*) appear pinned at the very top (`top: 0`), completely covering the `UniversalMedia` navbar, format buttons, and hamburger menu.
+- **Root Cause**: The Monetag In-Page Push script (`zone: 11973493`, `tag.min.js`) dynamically creates fixed-position toast cards at the top of the viewport. On mobile devices with narrow vertical heights, two stacked toasts occupy over 150px, blinding the user from navigating.
+- **Solution**:
+  1. **Device-Aware Script Loading**: Modify the script loader in `layout.jsx` to only initialize In-Page Push on Desktop displays (`window.innerWidth >= 1024`). On mobile and tablet, the script will not run.
+  2. **Mobile CSS Protective Barrier**: Add a mobile-specific CSS override in `globals.css` so that if any overlay toast is cached by the client browser, it is automatically suppressed on viewports `< 1024px`.
 
 ---
 
-## 2. Detailed Technical Strategy
+### Issue 2: Native Banner Too Far Down at FAQ (Screenshots 2 & 3 & Audio 2)
+- **Problem**: Currently, the Native Recommendation Ad (`AdsterraBanner type="native3x1"`) is placed at the very bottom above the FAQ section. Users never scroll down that far, resulting in lost impressions and 0 clicks.
+- **Solution**:
+  - Shift the Native Ad up to the prime attention zone: **Directly below the Main Input Studio Component and right above "Effortless Workflow" (Step 01, 02, 03)**.
+  - This ensures 100% of visitors see the native recommendation grid immediately after interacting with the URL input, dramatically multiplying click conversions.
 
-### A. Dynamic Hash Re-render System (`adRefreshKey`)
-- **Mechanism**:
-  - In `MediaStudio.jsx`, maintain an `adRefreshKey` integer state (`const [adRefreshKey, setAdRefreshKey] = useState(0)`).
-  - Add a `useEffect` that listens to `activeFeature` and `hashchange` events:
-    ```jsx
-    useEffect(() => {
-      // Whenever URL hash or platform changes (#youtubevideodownloader, #instagram, etc.)
-      setAdRefreshKey((prev) => prev + 1);
-    }, [activeFeature]);
+---
+
+### Issue 3: Cross-Promoting Your Own Product / Additional Product (Screenshot 4 & Audio 4)
+- **Goal**: Like top web platforms that redirect/cross-promote their other tools (e.g., your AI Visual Studio / Background Remover in `aiapp`), you want to display an attractive promotional card to channel your downloader traffic into your other product.
+- **Solution**:
+  - Create a dedicated component: `OwnProductPromo.jsx` (or `FeaturedToolCard.jsx`).
+  - **Design & Layout**:
+    - High-CTR glassmorphic showcase card matching the Universal Media Studio dark-mode aesthetic.
+    - Highlights: *"Featured Tool: AI Visual Studio & Neural Background Remover"*
+    - Subtitle: *"100% In-Browser Client-Side Neural AI • Zero Cloud Uploads • Instant 4K Cutouts"*
+    - Features: `Neural Cutout`, `Multi-Layer Canvas`, `GIF Animator`
+    - High-intent CTA button: **"Try Free AI Studio →"** with configurable link (e.g. `NEXT_PUBLIC_AI_APP_URL` or direct link).
+  - **Placements**:
+    - **Position A:** Right between the Downloader and the native ads, giving users a direct path to your sister application.
+    - **Position B:** Inside the format output options as an extra creative card ("Enhance or Edit Cutout with AI").
+
+---
+
+## 2. Step-by-Step Implementation Strategy
+
+### Step 1: Suppress In-Page Push Overlays on Mobile & Tablet
+- **Target File:** `frontend/app/layout.jsx`
+  - Wrap Monetag In-Page Push in a client-side screen-width check:
+    ```javascript
+    // Only load floating toast ads on Desktop (>= 1024px)
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      (function(s){s.dataset.zone='11973493',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+    }
     ```
-  - Pass `key={`${type}-${adRefreshKey}`}` to every `<AdsterraBanner />`.
-  - When the key changes, React completely unmounts the previous iframe/container and mounts a new one, triggering Adsterra's script to request a fresh creative for the new platform category.
-
-### B. Cleaning Up Layout Collisions (`layout.jsx`)
-- **Remove Left & Right Skyscraper Columns**:
-  - Delete the fixed left skyscraper container (`hidden 2xl:block fixed left-3 top-28 z-20`) and the right skyscraper container. This immediately removes the black sidebar with the broken image icon.
-- **Remove Adsterra Social Bar Script**:
-  - Remove `<script src="https://pl28737566.profitableratecpmnetwork.com/7b/ce/44/7bce44372b81a880c31e685cb19940e4.js"></script>` from `layout.jsx`.
-  - Monetag in-page push will remain the sole, clean notification system without overlapping popups.
-
-### C. Removing "ADVERTISEMENT" and "SPONSORED" Badges (`AdsterraBanner.jsx`)
-- Remove the `<span className="text-[9px] uppercase ...">Advertisement</span>` pill.
-- Remove the `<span className="text-[10px] uppercase ...">Sponsored Recommendations</span>` header.
-- Remove the dark background container styling (`border border-slate-800/80 bg-slate-950/70 shadow-lg`) that caused black boxes when ads were pending. Use transparent background so it renders cleanly.
-
-### D. Re-architecting the Output Format Cards Grid (`MediaStudio.jsx`)
-- When a user inspects a video, `mediaData.formats` contains the download options (typically 6 options: 1080p, 720p, 480p, 360p, 240p, MP3).
-- **New Grid Layout**:
-  1. **Top Row (High-Value Formats)**:
-     - Render `mediaData.formats.slice(0, 3)` (1080p, 720p, 480p).
-  2. **Mid-Grid Ad Slot (Directly between output tiers)**:
-     - Place a responsive banner or ad card right after the 3rd card.
-     - Users naturally pause here while scanning quality and file sizes, resulting in highest unintentional and intentional click conversions.
-  3. **Bottom Row (Standard & Audio Formats)**:
-     - Render `mediaData.formats.slice(3)` (360p, 240p, MP3 Audio).
-  4. **Post-Output Action Ad Slot**:
-     - Render the Native 4:1 recommendation grid (`container-7fbfd684b6cad6d0ccca08d1b524a028`) immediately below the MP3 card with a Direct Cloud Mirror Smartlink.
+- **Target File:** `frontend/app/globals.css`
+  - Add responsive suppression rules for mobile and tablet:
+    ```css
+    @media (max-width: 1023px) {
+      [class*="inpage"],
+      [id*="inpage"],
+      [class*="toast-banner"],
+      div[style*="z-index: 2147483647"] {
+        display: none !important;
+      }
+    }
+    ```
 
 ---
 
-## 3. Files to Modify
+### Step 2: Reposition Native Ad Above "Effortless Workflow"
+- **Target File:** `frontend/app/page.jsx`
+  - Remove `<AdsterraBanner type="native3x1" />` from above Section 4 (FAQ).
+  - Place it directly beneath `<MediaStudio />` and above `<article>` ("Effortless Workflow"):
+    ```jsx
+    {/* Main Interactive Downloader Studio Component */}
+    <MediaStudio />
 
-| File | Changes Planned |
-| :--- | :--- |
-| **`frontend/app/layout.jsx`** | Remove left & right skyscraper side ads; remove Adsterra Social Bar script to prevent popup collision with Monetag. |
-| **`frontend/components/AdsterraBanner.jsx`** | Remove "ADVERTISEMENT" and "SPONSORED" badges; remove black box background/borders; support `refreshKey` prop for forced re-rendering. |
-| **`frontend/components/MediaStudio.jsx`** | Add `useEffect` on hash change to increment `adRefreshKey`; restructure format card output to render mid-grid ad after 3 cards and post-output ad after last card. |
-| **`frontend/app/page.jsx`** | Ensure native ad below content doesn't show broken boxes. |
+    {/* High-CTR Native Recommendation Grid (Directly below input, above Effortless Workflow) */}
+    <div className="w-full max-w-5xl mx-auto my-8">
+      <AdsterraBanner type="native3x1" />
+    </div>
+
+    {/* Crawlable High-Authority Content Layer ("Effortless Workflow") */}
+    <article className="w-full max-w-4xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-slate-800/80">
+      ...
+    </article>
+    ```
 
 ---
 
-## 4. Verification & Testing Steps
-1. Test switching between `#youtubevideodownloader`, `#instagram`, `#facebook`, `#tiktok` to verify all ads re-render with fresh creatives.
-2. Confirm the black sidebar on the left is gone completely.
-3. Confirm the top-right corner no longer has two overlapping popups.
-4. Verify the format output grid displays 3 cards -> ad -> remaining cards -> post-output ad.
-5. Run `npm run build` to confirm 0 compilation errors.
+### Step 3: Build & Integrate Your Own Product Showcase Card
+- **Create:** `frontend/components/OwnProductPromo.jsx`
+  - Configurable destination URL (e.g., link to your AI Background Remover / Visual Studio).
+  - Eye-catching banner with live glowing gradient border, badge tag (*"Sister Platform"* or *"Recommended AI Studio"*), and direct link.
+- **Integrate into `frontend/app/page.jsx`:**
+  - Place cleanly between the native ad and Effortless Workflow, or right below the native grid.
+  - Users who finish downloading or are looking for image/video tools can click through to your AI app with 1 click.
+
+---
+
+## 3. Verification & Safety Checklist
+1. **Mobile Header Test:** Emulate mobile screen (< 768px) and verify Monetag toasts do NOT block the header, logo, or hamburger menu.
+2. **Native Ad Visibility:** Confirm that on the homepage, the Native 3:1 banner is immediately visible below the URL input box without needing to scroll to the FAQ.
+3. **Cross-Promotion Clickthrough:** Verify the Own Product card renders cleanly and redirects properly to your target product.
+4. **Build Verification:** Run `npm run build` to ensure zero compilation or hydration errors.
