@@ -106,7 +106,7 @@ export default function HomePage() {
 
       {/* Featured Sister Tool: Own Product Cross-Promotion */}
       <div className="w-full max-w-5xl mx-auto mb-8">
-        <OwnProductPromo />
+        <OwnProductPromo targetUrl="https://www.polishai.in/" />
       </div>
 
       {/* Crawlable High-Authority Content Layer (800+ Words for SEO Indexing) */}

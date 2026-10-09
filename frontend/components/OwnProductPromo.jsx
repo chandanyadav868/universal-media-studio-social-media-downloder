@@ -4,7 +4,7 @@ import { Sparkles, Scissors, Clapperboard, Layers, ArrowRight, ShieldCheck, Zap 
 
 export default function OwnProductPromo({
   className = "",
-  targetUrl = process.env.NEXT_PUBLIC_AI_APP_URL || "https://ai.humantalking.com",
+  targetUrl = process.env.NEXT_PUBLIC_AI_APP_URL || "https://www.polishai.in/",
 }) {
   return (
     <aside
