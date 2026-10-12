@@ -259,7 +259,10 @@ export const youtubeHandler = {
     throw new Error(`Failed to inspect YouTube video: ${lastError?.message || "unknown error"}`);
   },
 
-  startStream({ url, formatSelector, mediaType, ffmpegPath, ytdlpPath, res }) {
+  startStream({ url, formatSelector, mediaType, ffmpegPath, ytdlpPath, res, onCompleted, onError }) {
+    let cleanUrl = sanitizeMediaUrl(url);
+    cleanUrl = cleanUrl.replace(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/, "youtube.com/watch?v=$1");
+
     const isAudio = mediaType === "audio" && !(formatSelector && (formatSelector.includes("+") || formatSelector === "hd" || formatSelector === "sd"));
     const cookiesPath = getCookiesPath();
     const common = baseArgs(cookiesPath);
@@ -273,7 +276,7 @@ export const youtubeHandler = {
       ...activeStrategy.args,
       "-f", isAudio ? "bestaudio/best" : (formatSelector || "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"),
       "-o", "-",
-      url,
+      cleanUrl,
     ];
 
     const ffmpegArgs = isAudio
@@ -295,11 +298,28 @@ export const youtubeHandler = {
     const ytdlpProc = spawn(ytdlpPath, ytdlpArgs);
     const ffmpegProc = spawn(ffmpegPath, ffmpegArgs);
 
+    let bytesStreamed = 0;
+    let streamFailed = false;
+
+    // Handle pipe errors so Node.js never crashes with unhandled EPIPE
+    ytdlpProc.stdout.on("error", (err) => {
+      if (err.code !== "EPIPE") {
+        warn(`ytdlp stdout pipe error: ${err.message}`);
+      }
+    });
+
+    ffmpegProc.stdin.on("error", (err) => {
+      if (err.code !== "EPIPE") {
+        warn(`ffmpeg stdin pipe error: ${err.message}`);
+      }
+    });
+
     ytdlpProc.stdout.pipe(ffmpegProc.stdin);
 
     ffmpegProc.stdout.on("data", (chunk) => {
       try {
         if (!res.writableEnded) {
+          bytesStreamed += chunk.length;
           res.write(chunk);
         }
       } catch (err) {
@@ -313,7 +333,10 @@ export const youtubeHandler = {
           res.end();
         }
       } catch (e) {}
-      log("✓  Zero-disk stream completed successfully.");
+      if (bytesStreamed > 0) {
+        log(`✓  Zero-disk stream completed successfully (${(bytesStreamed / (1024 * 1024)).toFixed(2)} MB).`);
+        if (typeof onCompleted === "function") onCompleted();
+      }
     });
 
     let ytdlpStderr = "";
@@ -333,28 +356,43 @@ export const youtubeHandler = {
 
     ytdlpProc.on("error", (err) => {
       warn(`yt-dlp stream process error: ${err.message}`);
+      streamFailed = true;
+      if (typeof onError === "function") onError(err);
       cleanup();
     });
 
     ffmpegProc.on("error", (err) => {
       warn(`ffmpeg stream process error: ${err.message}`);
+      streamFailed = true;
+      if (typeof onError === "function") onError(err);
       cleanup();
     });
 
     ytdlpProc.on("close", (code) => {
       if (code !== 0 && code !== null) {
-        warn(`yt-dlp stream exited with code ${code}`);
+        warn(`yt-dlp stream exited with code ${code}: ${ytdlpStderr.slice(-200)}`);
+        if (bytesStreamed === 0) {
+          streamFailed = true;
+          const err = new Error(`yt-dlp stream failed (code ${code}): ${ytdlpStderr.slice(-150) || "Unknown error"}`);
+          if (typeof onError === "function") onError(err);
+        }
       }
     });
 
     ffmpegProc.on("close", (code) => {
       if (code !== 0 && code !== null) {
         warn(`ffmpeg stream exited with code ${code}`);
+        if (bytesStreamed === 0 && !streamFailed) {
+          const err = new Error(`ffmpeg stream failed (code ${code})`);
+          if (typeof onError === "function") onError(err);
+        }
       }
     });
 
     res.on("close", () => {
       cleanup();
     });
+
+    return { cleanup };
   },
 };

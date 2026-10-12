@@ -1,101 +1,106 @@
-# Implementation Plan: Mobile Push Ad Suppression, Native Ad Re-Positioning & Own Product Cross-Promotion
+# Comprehensive Plan: Fixing 500 Stream Errors, Zero-Cost Real-Time Error Monitoring & Enhancing Download Timer Display
 
-## 1. Executive Summary & Root Cause Analysis
+## 1. Problem Breakdown & Root Causes
 
-Based on your audio recordings and screenshots:
-
-### Issue 1: Mobile Header Covered by Stacked Pop-Up Toasts (Screenshot 1 & Audio 1)
-- **Problem**: On mobile screens, two stacked push notification ads (*"Spin and Win Huge Prize!"* and *"JACKPOT WINNER OF THE DAY"*) appear pinned at the very top (`top: 0`), completely covering the `UniversalMedia` navbar, format buttons, and hamburger menu.
-- **Root Cause**: The Monetag In-Page Push script (`zone: 11973493`, `tag.min.js`) dynamically creates fixed-position toast cards at the top of the viewport. On mobile devices with narrow vertical heights, two stacked toasts occupy over 150px, blinding the user from navigating.
-- **Solution**:
-  1. **Device-Aware Script Loading**: Modify the script loader in `layout.jsx` to only initialize In-Page Push on Desktop displays (`window.innerWidth >= 1024`). On mobile and tablet, the script will not run.
-  2. **Mobile CSS Protective Barrier**: Add a mobile-specific CSS override in `globals.css` so that if any overlay toast is cached by the client browser, it is automatically suppressed on viewports `< 1024px`.
-
----
-
-### Issue 2: Native Banner Too Far Down at FAQ (Screenshots 2 & 3 & Audio 2)
-- **Problem**: Currently, the Native Recommendation Ad (`AdsterraBanner type="native3x1"`) is placed at the very bottom above the FAQ section. Users never scroll down that far, resulting in lost impressions and 0 clicks.
-- **Solution**:
-  - Shift the Native Ad up to the prime attention zone: **Directly below the Main Input Studio Component and right above "Effortless Workflow" (Step 01, 02, 03)**.
-  - This ensures 100% of visitors see the native recommendation grid immediately after interacting with the URL input, dramatically multiplying click conversions.
-
----
-
-### Issue 3: Cross-Promoting Your Own Product / Additional Product (Screenshot 4 & Audio 4)
-- **Goal**: Like top web platforms that redirect/cross-promote their other tools (e.g., your AI Visual Studio / Background Remover in `aiapp`), you want to display an attractive promotional card to channel your downloader traffic into your other product.
-- **Solution**:
-  - Create a dedicated component: `OwnProductPromo.jsx` (or `FeaturedToolCard.jsx`).
-  - **Design & Layout**:
-    - High-CTR glassmorphic showcase card matching the Universal Media Studio dark-mode aesthetic.
-    - Highlights: *"Featured Tool: AI Visual Studio & Neural Background Remover"*
-    - Subtitle: *"100% In-Browser Client-Side Neural AI • Zero Cloud Uploads • Instant 4K Cutouts"*
-    - Features: `Neural Cutout`, `Multi-Layer Canvas`, `GIF Animator`
-    - High-intent CTA button: **"Try Free AI Studio →"** with configurable link (e.g. `NEXT_PUBLIC_AI_APP_URL` or direct link).
-  - **Placements**:
-    - **Position A:** Right between the Downloader and the native ads, giving users a direct path to your sister application.
-    - **Position B:** Inside the format output options as an extra creative card ("Enhance or Edit Cutout with AI").
+### Issue 1: HTTP 500 Stream Error on Video Download
+- **Error Observed**:
+  ```
+  GET https://humantalking.com/api/media/stream?url=https%3A%2F%2Fyoutube.com%2Fs…%A4%AB%E0%A4%BC%E0%A4%AC%E0%A5%8D%E0%A4%A4%E0%A5%80+%7C+%23genz+%23protest 500 (Internal Server Error)
+  Stream reader error: Error: Server returned HTTP 500: Stream unavailable.
+  ```
+- **Root Cause Analysis**:
+  1. **Title & Header Sanitization Failure**:
+     - The requested video title contains Hindi script (*"फ़ब्ती | #genz #protest"*).
+     - In `backend/src/services/zeroDiskStreamService.js`:
+       ```javascript
+       const cleanTitle = (title || "video").replace(/[^\w\s-]/gi, "").replace(/\s+/g, "_").substring(0, 60);
+       res.setHeader("Content-Disposition", `attachment; filename="${cleanTitle}.${ext}"`);
+       ```
+       In Node.js, `[^\w\s-]` without the unicode flag strips all Hindi characters. If a title is composed solely of non-Latin characters, `cleanTitle` becomes an empty string (`""`), leading to an invalid header `filename=".mp4"`. Furthermore, if unencoded non-ASCII characters or pipe symbols are injected, Node.js throws `TypeError [ERR_INVALID_CHAR]: Invalid character in header content ["Content-Disposition"]`, immediately triggering an unhandled **HTTP 500** before streaming begins.
+  2. **Process Spawn & Stream Pipe Error Handling**:
+     - In `youtubeHandler.js`, `ytdlpProc.stdout.pipe(ffmpegProc.stdin)` is executed without explicit error listeners on the pipe. If `ffmpeg` or `yt-dlp` encounters an exit code before streaming starts, an unhandled `EPIPE` error is emitted, aborting the response with 500.
+     - YouTube Shorts URLs need canonical normalization to standard `https://www.youtube.com/watch?v=VIDEO_ID` to ensure all DASH formats are reliably extracted.
 
 ---
 
-## 2. Step-by-Step Implementation Strategy
-
-### Step 1: Suppress In-Page Push Overlays on Mobile & Tablet
-- **Target File:** `frontend/app/layout.jsx`
-  - Wrap Monetag In-Page Push in a client-side screen-width check:
-    ```javascript
-    // Only load floating toast ads on Desktop (>= 1024px)
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      (function(s){s.dataset.zone='11973493',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
-    }
-    ```
-- **Target File:** `frontend/app/globals.css`
-  - Add responsive suppression rules for mobile and tablet:
-    ```css
-    @media (max-width: 1023px) {
-      [class*="inpage"],
-      [id*="inpage"],
-      [class*="toast-banner"],
-      div[style*="z-index: 2147483647"] {
-        display: none !important;
-      }
-    }
-    ```
+### Issue 2: Real-Time Developer Activity & Error Tracking (Zero-Cost / No Sentry)
+- **Problem**: In production, when an error occurs, the developer currently has no way to see what went wrong, which URL failed, or what caused the crash. The user explicitly requested a free, self-hosted solution (no paid tools like Sentry).
+- **Proposed Solution: Universal Media Studio Real-Time Telemetry & Developer Console**:
+  1. **In-Memory Ring Buffer & Error Persistence**:
+     - Maintain the last 500 activities and errors in memory with automatic rotation.
+     - Persist critical errors to `backend/logs/production-errors.log`.
+  2. **Real-Time Developer Endpoints**:
+     - `GET /api/monitoring/logs`: Fetch recent system activities and error logs in structured JSON.
+     - `GET /api/monitoring/stream`: Server-Sent Events (SSE) live stream to watch errors occur in real-time as users browse.
+     - Protected by an admin secret key (`x-admin-key` or query `?key=...`).
+  3. **Client-Side Error Reporter**:
+     - `POST /api/monitoring/report-error`: Frontend automatically sends client-side fetch/stream failures to the backend so the developer sees the full client + server context.
+  4. **Developer Monitoring Dashboard UI**:
+     - A sleek web dashboard at `/admin/logs` on the frontend allowing the developer to inspect live logs, filter by error/success, view stack traces, and copy diagnostic reports in 1 click.
 
 ---
 
-### Step 2: Reposition Native Ad Above "Effortless Workflow"
-- **Target File:** `frontend/app/page.jsx`
-  - Remove `<AdsterraBanner type="native3x1" />` from above Section 4 (FAQ).
-  - Place it directly beneath `<MediaStudio />` and above `<article>` ("Effortless Workflow"):
-    ```jsx
-    {/* Main Interactive Downloader Studio Component */}
-    <MediaStudio />
-
-    {/* High-CTR Native Recommendation Grid (Directly below input, above Effortless Workflow) */}
-    <div className="w-full max-w-5xl mx-auto my-8">
-      <AdsterraBanner type="native3x1" />
-    </div>
-
-    {/* Crawlable High-Authority Content Layer ("Effortless Workflow") */}
-    <article className="w-full max-w-4xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-slate-800/80">
-      ...
-    </article>
-    ```
+### Issue 3: Download Timing & Countdown Font Size Enhancement
+- **Problem**: The countdown timer and preparation timing in the download modal are currently too small (`text-xs`), causing users to not notice the time remaining and close the modal prematurely.
+- **Proposed Solution**:
+  1. **Phase 1 (Auto-Start Countdown)**:
+     - Upgrade the countdown to a prominent, high-contrast animated display.
+     - Increase font size to **`text-3xl sm:text-4xl font-black font-mono text-blue-400`**.
+     - Display a clear message: *"Download auto-starts in `Xs`"* with an animated pulsing ring.
+  2. **Phase 2 (Streaming Preparation & ETA)**:
+     - Increase the time indicator font size to **`text-base sm:text-xl font-bold font-mono text-white`**.
+     - Prominently display: *"Est. ~Xs remaining • Speed: X.X MB/s"*.
+     - While stream buffers (~4–8s), display a prominent badge: *"Multiplexing HD Video & Audio Stream... (~5s)"*.
 
 ---
 
-### Step 3: Build & Integrate Your Own Product Showcase Card
-- **Create:** `frontend/components/OwnProductPromo.jsx`
-  - Configurable destination URL (e.g., link to your AI Background Remover / Visual Studio).
-  - Eye-catching banner with live glowing gradient border, badge tag (*"Sister Platform"* or *"Recommended AI Studio"*), and direct link.
-- **Integrate into `frontend/app/page.jsx`:**
-  - Place cleanly between the native ad and Effortless Workflow, or right below the native grid.
-  - Users who finish downloading or are looking for image/video tools can click through to your AI app with 1 click.
+## 2. Step-by-Step Implementation Roadmap
+
+### Phase 1: Fix Backend 500 Stream Error & Encoding
+1. **Header Sanitization in `backend/src/services/zeroDiskStreamService.js`**:
+   - Implement RFC 5987 / RFC 6266 standard `Content-Disposition`:
+     ```javascript
+     // Safe ASCII fallback + UTF-8 encoded filename for Hindi / International characters
+     const safeAscii = cleanTitle || "media_download";
+     const utf8Title = encodeURIComponent(title || "media_download");
+     res.setHeader(
+       "Content-Disposition",
+       `attachment; filename="${safeAscii}.${ext}"; filename*=UTF-8''${utf8Title}.${ext}`
+     );
+     ```
+2. **Canonical YouTube Shorts Normalization in `backend/src/services/platforms/youtubeHandler.js`**:
+   - Ensure URLs like `https://youtube.com/shorts/VIDEO_ID` are converted to `https://www.youtube.com/watch?v=VIDEO_ID` before extraction.
+3. **EPIPE & Stream Pipe Error Boundaries**:
+   - Add `.on("error")` handlers on `ytdlpProc.stdout` and `ffmpegProc.stdin` to prevent unhandled process crashes.
 
 ---
 
-## 3. Verification & Safety Checklist
-1. **Mobile Header Test:** Emulate mobile screen (< 768px) and verify Monetag toasts do NOT block the header, logo, or hamburger menu.
-2. **Native Ad Visibility:** Confirm that on the homepage, the Native 3:1 banner is immediately visible below the URL input box without needing to scroll to the FAQ.
-3. **Cross-Promotion Clickthrough:** Verify the Own Product card renders cleanly and redirects properly to your target product.
-4. **Build Verification:** Run `npm run build` to ensure zero compilation or hydration errors.
+### Phase 2: Build Free Real-Time Developer Activity & Error Tracking System
+1. **Create `backend/src/services/telemetryService.js`**:
+   - `logActivity({ type, url, platform, status, durationMs, error })`
+   - Ring buffer of last 500 entries.
+   - SSE client subscription manager for real-time live updates.
+2. **Add Backend Routes in `backend/src/server.js`**:
+   - `GET /api/monitoring/logs` — View past 200 logs.
+   - `GET /api/monitoring/stream` — Real-time Server-Sent Events stream.
+   - `POST /api/monitoring/report-error` — Ingest client-side errors.
+3. **Build Frontend Developer Console**:
+   - Create `frontend/app/admin/logs/page.jsx` with real-time SSE stream, filter pills (*"All"*, *"Errors Only"*, *"Streams"*), and stack trace modal.
+4. **Connect Frontend Error Reporting**:
+   - In `DownloadModal.jsx` and `MediaStudio.jsx`, when an error occurs, automatically call `reportClientError(error, context)` to push it to the developer log.
+
+---
+
+### Phase 3: Enlarge Countdown & Timing Font Size in Download Modal
+1. **Update `frontend/components/DownloadModal.jsx`**:
+   - Enlarge Phase 1 auto-start countdown timer to **`text-3xl sm:text-4xl font-black font-mono text-blue-400`**.
+   - Enlarge Phase 2 stream preparation badge and live remaining seconds to **`text-base sm:text-xl font-bold font-mono text-white`**.
+   - Add visual pulsing clock animation and progress bar enhancements.
+
+---
+
+## 3. Verification & Deployment Plan
+1. **Test Video Download**: Test with international titles (including Hindi and YouTube Shorts) to confirm 500 error is completely resolved.
+2. **Test Live Monitoring**: Open `/admin/logs` on the developer console and trigger an inspection/download to verify real-time log ingestion via SSE.
+3. **Verify Download Modal Font**: Verify that the countdown and remaining time displays are large, bold, and easily readable on both mobile and desktop.
+4. **Build Verification**: Run `npm run build` on both frontend and backend to confirm 0 compilation errors.

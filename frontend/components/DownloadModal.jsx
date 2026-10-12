@@ -141,7 +141,21 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned HTTP ${response.status}: Stream unavailable.`);
+        const errorText = await response.text().catch(() => "");
+        const errMsg = `Server returned HTTP ${response.status}: Stream unavailable.`;
+        try {
+          fetch("/api/monitoring/report-error", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: `${errMsg} ${errorText.slice(0, 100)}`,
+              url: mediaData?.originalUrl || "",
+              title: videoTitle || "",
+              platform: mediaData?.platform || "youtube",
+            }),
+          }).catch(() => {});
+        } catch (e) {}
+        throw new Error(errMsg);
       }
 
       const headerLength = response.headers.get("content-length") || response.headers.get("x-estimated-content-length");
@@ -317,11 +331,21 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
                   </motion.button>
                 </div>
 
-                {/* Auto-start Countdown Tag */}
+                {/* Auto-start Countdown Display (Large & Prominent) */}
                 {autoStartEnabled && countdown > 0 && (
-                  <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/60 mb-3">
-                    <Clock size={13} className="text-blue-400" />
-                    <span>Auto-starting download in <strong className="text-blue-400 font-bold">{countdown}s</strong></span>
+                  <div className="w-full flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl bg-blue-950/30 border border-blue-500/40 mb-3 shadow-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock size={18} className="text-blue-400 animate-pulse" />
+                      <span className="text-xs sm:text-sm font-bold text-blue-200 uppercase tracking-wider">
+                        Auto-Starting Download In
+                      </span>
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black text-blue-400 font-mono tracking-wider animate-pulse">
+                      {countdown}s
+                    </div>
+                    <span className="text-[11px] text-slate-400 mt-1">
+                      Please wait a moment while the high-speed stream connects...
+                    </span>
                   </div>
                 )}
               </div>
@@ -347,23 +371,24 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
                     Downloading {currentDownloadType === "audio" ? "Audio Track" : `${format?.resolution || "1080p"} Video`}
                   </h3>
 
-                  {/* Live Status with Estimated Time */}
-                  <div className="text-xs sm:text-sm text-slate-300 mb-4 min-h-[22px]">
+                  {/* Live Status with Large Font Estimated Time */}
+                  <div className="mb-4 min-h-[38px] flex items-center justify-center">
                     {loadedVal === 0 ? (
-                      <span className="text-blue-400 font-medium inline-flex items-center gap-1.5 animate-pulse">
-                        <Clock size={13} />
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-950/40 border border-blue-500/30 text-blue-300 font-semibold text-xs sm:text-sm animate-pulse">
+                        <Clock size={16} className="text-blue-400 animate-spin" />
                         <span>Allocating stream slot & remuxing DASH stream... (Please wait ~4–8s)</span>
-                      </span>
+                      </div>
                     ) : (
-                      <span>
-                        Zero-disk stream active •{" "}
-                        <span className="font-semibold text-white">{speedMBs} MB/s</span>
+                      <div className="inline-flex flex-wrap items-center justify-center gap-3 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs sm:text-sm">
+                        <span className="text-slate-300">
+                          Speed: <strong className="text-white font-mono">{speedMBs} MB/s</strong>
+                        </span>
                         {estimatedSecLeft !== null && (
-                          <span className="text-blue-300 ml-1.5 font-mono">
-                            (Est. ~{estimatedSecLeft}s remaining)
+                          <span className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-300 font-mono font-bold text-sm sm:text-base border border-blue-500/40">
+                            ⏱ ~{estimatedSecLeft}s remaining
                           </span>
                         )}
-                      </span>
+                      </div>
                     )}
                   </div>
 

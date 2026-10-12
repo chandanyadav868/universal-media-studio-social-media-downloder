@@ -221,6 +221,17 @@ app.get("/api/media/stream", async (req, res) => {
       slotAcquired = false;
     }
     console.error("[Backend] Stream error:", error);
+    logActivity({
+      level: "ERROR",
+      type: "stream",
+      url: req.query.url || "",
+      title: req.query.title || "",
+      format: req.query.formatSelector || "",
+      status: 503,
+      error: error,
+      clientIp: req.headers["x-forwarded-for"] || req.socket.remoteAddress || "",
+      userAgent: req.headers["user-agent"] || "",
+    });
     if (!res.headersSent) {
       res.status(503).json({
         success: false,
@@ -278,6 +289,99 @@ app.get("/api/image/download", async (req, res) => {
     if (!res.headersSent) {
       res.status(500).send("Image download failed.");
     }
+  }
+});
+
+
+// ===================================================================
+// REAL-TIME DEVELOPER TELEMETRY & LOGGING CONTROL ENDPOINTS
+// Free, permanent, zero-database activity & error tracking
+// ===================================================================
+
+const verifyAdminAccess = (req, res, next) => {
+  const providedKey = req.headers["x-admin-key"] || req.query.key;
+  if (!providedKey || providedKey !== ADMIN_SECRET) {
+    return res.status(401).json({
+      success: false,
+      error: "Unauthorized: Invalid or missing admin key.",
+    });
+  }
+  next();
+};
+
+/**
+ * GET /api/monitoring/stats
+ * Real-time performance, error rate, and active concurrency stats
+ */
+app.get("/api/monitoring/stats", verifyAdminAccess, (req, res) => {
+  res.json({ success: true, ...getTelemetryStats() });
+});
+
+/**
+ * GET /api/monitoring/logs
+ * Query historical & recent logs with level/type/search filtering
+ */
+app.get("/api/monitoring/logs", verifyAdminAccess, (req, res) => {
+  const { limit, level, type, search } = req.query;
+  const logs = getLogs({
+    limit: limit ? parseInt(limit, 10) : 150,
+    level,
+    type,
+    search,
+  });
+  res.json({
+    success: true,
+    count: logs.length,
+    logs,
+  });
+});
+
+/**
+ * GET /api/monitoring/stream
+ * Real-time Server-Sent Events (SSE) live feed
+ */
+app.get("/api/monitoring/stream", (req, res) => {
+  const providedKey = req.headers["x-admin-key"] || req.query.key;
+  if (!providedKey || providedKey !== ADMIN_SECRET) {
+    return res.status(401).send("Unauthorized: Invalid admin key.");
+  }
+  subscribeSSE(req, res);
+});
+
+/**
+ * DELETE /api/monitoring/logs
+ * Clear all in-memory and disk logs
+ */
+app.delete("/api/monitoring/logs", verifyAdminAccess, (req, res) => {
+  res.json(clearLogs());
+});
+
+/**
+ * POST /api/monitoring/report-error
+ * Ingest client-side errors reported by frontend
+ */
+app.post("/api/monitoring/report-error", (req, res) => {
+  try {
+    const { message, stack, url, title, platform, userAgent } = req.body || {};
+    const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+
+    const logged = logActivity({
+      level: "ERROR",
+      type: "client",
+      platform: platform || "frontend",
+      url: url || "",
+      title: title || "",
+      status: 500,
+      error: message || "Client-side error reported",
+      stack: stack || "",
+      clientIp,
+      userAgent: userAgent || req.headers["user-agent"] || "",
+    });
+
+    console.warn(`[Client Error Ingested] ${message} (URL: ${url})`);
+    res.json({ success: true, id: logged.id });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
