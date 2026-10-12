@@ -90,13 +90,6 @@ export default function RootLayout({ children }) {
 
         <meta name="google-adsense-account" content="ca-pub-1412205696232927" />
 
-        <Script
-          id="adsense-init"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1412205696232927"
-          crossOrigin="anonymous"
-          strategy="lazyOnload"
-        />
 
                 {/* Monetag In-Page Push (Only loaded on Desktop >= 1024px to prevent covering mobile/tablet menus) */}
         <script
@@ -118,6 +111,14 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body suppressHydrationWarning className="min-h-screen flex flex-col bg-[#080c15] text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white relative">
+        {/* Google AdSense Script - Placed in <body> as required by Next.js App Router */}
+        <Script
+          id="adsense-init"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1412205696232927"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
 
         {/* Dynamic Route-Aware Navigation Bar */}
         <Navbar />
