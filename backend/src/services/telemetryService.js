@@ -241,11 +241,23 @@ export function subscribeSSE(req, res) {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
 
+  // Send initial connection packet
   res.write(`data: ${JSON.stringify({ type: "connected", time: new Date().toISOString() })}\n\n`);
+
+  // Heartbeat comment every 15s keeps intermediate reverse proxies (Nginx/Traefik/Cloudflare)
+  // and browser connections alive without interrupting EventSource
+  const heartbeatTimer = setInterval(() => {
+    try {
+      res.write(": keepalive\n\n");
+    } catch (e) {
+      clearInterval(heartbeatTimer);
+    }
+  }, 15000);
 
   sseClients.add(res);
 
   req.on("close", () => {
+    clearInterval(heartbeatTimer);
     sseClients.delete(res);
   });
 }

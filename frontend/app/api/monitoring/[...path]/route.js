@@ -1,5 +1,8 @@
 // Next.js Server-Side Proxy to Backend for Monitoring Endpoints & SSE Streaming
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const getBackendCandidates = () => {
   const list = [];
   if (process.env.BACKEND_URL) list.push(process.env.BACKEND_URL.replace(/\/+$/, ""));
@@ -13,17 +16,22 @@ const getBackendCandidates = () => {
   return [...new Set(list.filter(Boolean))];
 };
 
-async function fetchWithFallback(subPath, searchParamsStr, options = {}) {
+async function fetchWithFallback(subPath, searchParamsStr, options = {}, isSSE = false, clientSignal = null) {
   const candidates = getBackendCandidates();
   let lastError = null;
 
   for (const base of candidates) {
     const url = searchParamsStr ? `${base}/api/monitoring/${subPath}?${searchParamsStr}` : `${base}/api/monitoring/${subPath}`;
     try {
-      const res = await fetch(url, {
-        ...options,
-        signal: AbortSignal.timeout(4000), // Fast 4s timeout prevents long 502 hangs
-      });
+      const fetchOptions = { ...options };
+      // SSE streams must NOT have a short abort timeout, but forward the client disconnect signal
+      if (isSSE) {
+        if (clientSignal) fetchOptions.signal = clientSignal;
+      } else {
+        fetchOptions.signal = AbortSignal.timeout(4000); // 4s fast timeout for standard API calls
+      }
+
+      const res = await fetch(url, fetchOptions);
 
       if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
         lastError = new Error(`Candidate ${base} returned HTTP ${res.status} HTML.`);
@@ -52,18 +60,27 @@ export async function GET(request, { params }) {
     const adminKey = request.headers.get("x-admin-key") || searchParams.get("key");
     if (adminKey) headers["x-admin-key"] = adminKey;
 
-    const { res: backendRes } = await fetchWithFallback(subPath, searchParams.toString(), {
-      method: "GET",
-      headers,
-    });
+    const { res: backendRes } = await fetchWithFallback(
+      subPath, 
+      searchParams.toString(), 
+      {
+        method: "GET",
+        headers,
+      },
+      isSSE,
+      request.signal
+    );
+
+    const resHeaders = {
+      "Content-Type": backendRes.headers.get("content-type") || (isSSE ? "text/event-stream" : "application/json"),
+      "Cache-Control": isSSE ? "no-cache, no-transform" : (backendRes.headers.get("cache-control") || "no-cache"),
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    };
 
     return new Response(backendRes.body, {
       status: backendRes.status,
-      headers: {
-        "Content-Type": backendRes.headers.get("content-type") || "application/json",
-        "Cache-Control": backendRes.headers.get("cache-control") || "no-cache",
-        "Connection": backendRes.headers.get("connection") || "keep-alive",
-      },
+      headers: resHeaders,
     });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 502 });

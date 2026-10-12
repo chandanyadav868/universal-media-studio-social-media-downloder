@@ -16,3 +16,6 @@ tmp/
 *.mp4
 *.mp3
 *.part
+
+logs/
+*.jsonl
