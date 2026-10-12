@@ -1,4 +1,5 @@
-import { execFile } from "child_process";
+import fs from "fs";
+import { execFile, execSync } from "child_process";
 import ffmpegPath from "ffmpeg-static";
 
 /**
@@ -37,5 +38,18 @@ export function getYtDlpPath() {
 }
 
 export function getFfmpegPath() {
+  // 1. Prioritize Linux / Docker native system ffmpeg (most stable, never segfaults with code -11)
+  if (fs.existsSync("/usr/bin/ffmpeg")) return "/usr/bin/ffmpeg";
+  if (fs.existsSync("/usr/local/bin/ffmpeg")) return "/usr/local/bin/ffmpeg";
+
+  // 2. Check system PATH if available
+  try {
+    const isWindows = process.platform === "win32";
+    const checkCmd = isWindows ? "where ffmpeg" : "which ffmpeg";
+    const found = execSync(checkCmd, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim().split(/\r?\n/)[0];
+    if (found && fs.existsSync(found)) return found;
+  } catch (e) {}
+
+  // 3. Fallback to ffmpeg-static for environments without system ffmpeg (e.g. Windows dev)
   return ffmpegPath || "ffmpeg";
 }
