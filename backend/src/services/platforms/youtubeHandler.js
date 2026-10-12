@@ -83,26 +83,51 @@ export const youtubeHandler = {
 
   _getStrategies() {
     const cookiesPath = getCookiesPath();
-    const common = baseArgs(cookiesPath);
+    const hasCookies = cookiesPath && fs.existsSync(cookiesPath);
+    const authCommon = hasCookies ? ["--force-ipv4", "--cookies", cookiesPath] : ["--force-ipv4"];
+    const directCommon = ["--force-ipv4"];
 
-    return [
+    const list = [];
+
+    // 1. Authenticated strategies (active if cookies.txt is present)
+    if (hasCookies) {
+      list.push(
+        {
+          name: "Authenticated Session (Standard Web Client)",
+          args: [...authCommon],
+        },
+        {
+          name: "Authenticated Session (Web + MWeb Client)",
+          args: [...authCommon, "--extractor-args", "youtube:player_client=web,mweb"],
+        },
+        {
+          name: "Authenticated Session (TV Client)",
+          args: [...authCommon, "--extractor-args", "youtube:player_client=tv"],
+        },
+        {
+          name: "Authenticated Session (iOS Client)",
+          args: [...authCommon, "--extractor-args", "youtube:player_client=ios,mweb"],
+        }
+      );
+    }
+
+    // 2. Direct / Clean Extraction Fallbacks (essential when cookie session is locked, flagged, or requires reload)
+    list.push(
       {
-        name: "Authenticated Session (Standard Web Client)",
-        args: [...common],
+        name: "Direct Extraction (Default / VisionOS)",
+        args: [...directCommon],
       },
       {
-        name: "Authenticated Session (Web + MWeb Client)",
-        args: [...common, "--extractor-args", "youtube:player_client=web,mweb"],
+        name: "Direct Extraction (Android Client)",
+        args: [...directCommon, "--extractor-args", "youtube:player_client=android"],
       },
       {
-        name: "Authenticated Session (TV Client)",
-        args: [...common, "--extractor-args", "youtube:player_client=tv"],
-      },
-      {
-        name: "Authenticated Session (iOS Client)",
-        args: [...common, "--extractor-args", "youtube:player_client=ios,mweb"],
-      },
-    ];
+        name: "Direct Extraction (Web + MWeb Client)",
+        args: [...directCommon, "--extractor-args", "youtube:player_client=web,mweb"],
+      }
+    );
+
+    return list;
   },
 
   _runInspect(cleanUrl, ytdlpPath, strategy, label) {
@@ -267,10 +292,8 @@ export const youtubeHandler = {
     const cookiesPath = getCookiesPath();
     const common = baseArgs(cookiesPath);
 
-    const activeStrategy = this._lastSuccessfulStrategy || {
-      name: "Default Authenticated",
-      args: common,
-    };
+    const strategies = this._getStrategies();
+    const activeStrategy = this._lastSuccessfulStrategy || strategies[0];
 
     const ytdlpArgs = [
       ...activeStrategy.args,

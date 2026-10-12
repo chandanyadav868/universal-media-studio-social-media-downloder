@@ -1,28 +1,42 @@
 // Next.js Server-Side Streaming & API Proxy to Backend with Smart Candidate Failover
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const getBackendCandidates = () => {
   const list = [];
+  // In local development, prioritize local loopback backend
+  if (process.env.NODE_ENV !== "production") {
+    list.push("http://127.0.0.1:5000");
+    list.push("http://localhost:5000");
+  }
   if (process.env.BACKEND_URL) list.push(process.env.BACKEND_URL.replace(/\/+$/, ""));
   if (process.env.NEXT_PUBLIC_BACKEND_URL) list.push(process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, ""));
-  list.push("http://46.202.167.245:5000");
   list.push("http://127.0.0.1:5000");
+  list.push("http://localhost:5000");
   list.push("http://backend:5000");
   list.push("http://universal-backend:5000");
-  list.push("http://localhost:5000");
+  list.push("http://46.202.167.245:5000");
   return [...new Set(list.filter(Boolean))];
 };
 
-async function fetchWithFallback(subPath, searchParamsStr, options = {}) {
+async function fetchWithFallback(subPath, searchParamsStr, options = {}, clientSignal = null) {
   const candidates = getBackendCandidates();
   let lastError = null;
+  const isStream = subPath === "stream";
 
   for (const base of candidates) {
     const url = searchParamsStr ? `${base}/api/media/${subPath}?${searchParamsStr}` : `${base}/api/media/${subPath}`;
     try {
-      const res = await fetch(url, {
-        ...options,
-        signal: AbortSignal.timeout(35000),
-      });
+      const fetchOptions = { ...options };
+      // Video streams must not be aborted by a fixed timeout, but forward client disconnect
+      if (isStream) {
+        if (clientSignal) fetchOptions.signal = clientSignal;
+      } else {
+        fetchOptions.signal = AbortSignal.timeout(20000);
+      }
+
+      const res = await fetch(url, fetchOptions);
 
       // If response is HTML error from wrong host/reverse proxy, continue to next candidate
       if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
@@ -48,12 +62,17 @@ export async function GET(request, { params }) {
   const subPath = pathParts.join("/");
 
   try {
-    const { res: backendRes } = await fetchWithFallback(subPath, searchParams.toString(), {
-      method: "GET",
-      headers: {
-        Accept: request.headers.get("accept") || "*/*",
+    const { res: backendRes } = await fetchWithFallback(
+      subPath, 
+      searchParams.toString(), 
+      {
+        method: "GET",
+        headers: {
+          Accept: request.headers.get("accept") || "*/*",
+        },
       },
-    });
+      request.signal
+    );
 
     // Stream response directly to browser
     return new Response(backendRes.body, {
@@ -83,13 +102,18 @@ export async function POST(request, { params }) {
   try {
     const body = await request.json().catch(() => ({}));
 
-    const { res: backendRes } = await fetchWithFallback(subPath, "", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const { res: backendRes } = await fetchWithFallback(
+      subPath, 
+      "", 
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+      request.signal
+    );
 
     const contentType = backendRes.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
