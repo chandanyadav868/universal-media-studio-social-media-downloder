@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Activity, AlertTriangle, CheckCircle2, Shield, RefreshCw, Trash2, 
-  Download, Search, Radio, Clock, ExternalLink, Copy, Check, Terminal, Server
+  Download, Search, Radio, Clock, ExternalLink, Copy, Check, Terminal, Server, Eye, EyeOff
 } from "lucide-react";
 
 export default function AdminLogsDashboard() {
@@ -18,16 +18,26 @@ export default function AdminLogsDashboard() {
   const [isLiveStreaming, setIsLiveStreaming] = useState(true);
   const [selectedLog, setSelectedLog] = useState(null);
   const [copiedId, setCopiedId] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const eventSourceRef = useRef(null);
 
   // Load saved key on mount
   useEffect(() => {
-    const saved = localStorage.getItem("ums_admin_key") || "ums_admin_2026";
-    if (saved) {
-      setAdminKey(saved);
-      checkAuth(saved);
-    }
+    let keyToUse = "ums_admin_2026";
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryKey = urlParams.get("key");
+      const saved = localStorage.getItem("ums_admin_key");
+      if (queryKey) {
+        keyToUse = queryKey;
+      } else if (saved) {
+        keyToUse = saved;
+      }
+    } catch (e) {}
+
+    setAdminKey(keyToUse);
+    checkAuth(keyToUse);
   }, []);
 
   const checkAuth = async (key) => {
@@ -41,11 +51,16 @@ export default function AdminLogsDashboard() {
         const data = await res.json();
         setStats(data);
         setIsAuthenticated(true);
-        localStorage.setItem("ums_admin_key", key);
-        fetchLogs(key);
+        localStorage.setItem("ums_admin_key", key.trim());
+        fetchLogs(key.trim());
       } else {
         setIsAuthenticated(false);
-        setErrorMsg("Invalid Admin Key. Please enter the correct secret.");
+        if (res.status === 401 || res.status === 403) {
+          setErrorMsg("Invalid Admin Key. Default secret is: ums_admin_2026");
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          setErrorMsg(`Connection Error (${res.status}): ${errData.error || errData.details || res.statusText || "Unable to reach backend"}`);
+        }
       }
     } catch (err) {
       setErrorMsg("Failed to connect to monitoring service: " + err.message);
@@ -181,13 +196,33 @@ export default function AdminLogsDashboard() {
               <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
                 Admin Secret Key
               </label>
-              <input
-                type="password"
-                value={adminKey}
-                onChange={(e) => setAdminKey(e.target.value)}
-                placeholder="Enter admin key..."
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={adminKey}
+                  onChange={(e) => setAdminKey(e.target.value)}
+                  placeholder="Enter admin key..."
+                  className="w-full pl-4 pr-12 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                  title={showPassword ? "Hide key" : "Show key"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <div className="flex justify-between items-center mt-2 text-[11px] text-slate-500">
+                <span>Default: <code className="text-blue-400 font-mono">ums_admin_2026</code></span>
+                <button
+                  type="button"
+                  onClick={() => { setAdminKey("ums_admin_2026"); checkAuth("ums_admin_2026"); }}
+                  className="text-blue-400 hover:underline cursor-pointer"
+                >
+                  Use Default Key
+                </button>
+              </div>
             </div>
 
             {errorMsg && (

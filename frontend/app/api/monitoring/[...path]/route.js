@@ -4,11 +4,12 @@ const getBackendCandidates = () => {
   const list = [];
   if (process.env.BACKEND_URL) list.push(process.env.BACKEND_URL.replace(/\/+$/, ""));
   if (process.env.NEXT_PUBLIC_BACKEND_URL) list.push(process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, ""));
-  list.push("http://46.202.167.245:5000");
+  // Prioritize local loopback ports for instant dev response
   list.push("http://127.0.0.1:5000");
+  list.push("http://localhost:5000");
   list.push("http://backend:5000");
   list.push("http://universal-backend:5000");
-  list.push("http://localhost:5000");
+  list.push("http://46.202.167.245:5000");
   return [...new Set(list.filter(Boolean))];
 };
 
@@ -21,6 +22,7 @@ async function fetchWithFallback(subPath, searchParamsStr, options = {}) {
     try {
       const res = await fetch(url, {
         ...options,
+        signal: AbortSignal.timeout(4000), // Fast 4s timeout prevents long 502 hangs
       });
 
       if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
@@ -47,7 +49,7 @@ export async function GET(request, { params }) {
     const headers = {
       Accept: isSSE ? "text/event-stream" : "application/json",
     };
-    const adminKey = request.headers.get("x-admin-key");
+    const adminKey = request.headers.get("x-admin-key") || searchParams.get("key");
     if (adminKey) headers["x-admin-key"] = adminKey;
 
     const { res: backendRes } = await fetchWithFallback(subPath, searchParams.toString(), {
@@ -98,7 +100,7 @@ export async function DELETE(request, { params }) {
 
   try {
     const headers = {};
-    const adminKey = request.headers.get("x-admin-key");
+    const adminKey = request.headers.get("x-admin-key") || searchParams.get("key");
     if (adminKey) headers["x-admin-key"] = adminKey;
 
     const { res: backendRes } = await fetchWithFallback(subPath, searchParams.toString(), {

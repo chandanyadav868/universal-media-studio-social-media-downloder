@@ -7,6 +7,7 @@ import { execSync } from "child_process";
 import { inspectMediaUrl, streamMediaDirect } from "./services/zeroDiskStreamService.js";
 import { inspectMediaImages, proxyImageStream } from "./services/imageDownloaderService.js";
 import { acquireStreamSlot, releaseStreamSlot, getQueueStatus } from "./services/streamQueueService.js";
+import { logActivity, getLogs, getTelemetryStats, clearLogs, subscribeSSE, ADMIN_SECRET } from "./services/telemetryService.js";
 
 dotenv.config();
 
