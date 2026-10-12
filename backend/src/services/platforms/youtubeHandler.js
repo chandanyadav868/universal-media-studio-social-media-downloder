@@ -89,7 +89,23 @@ export const youtubeHandler = {
 
     const list = [];
 
-    // 1. Authenticated strategies (active if cookies.txt is present)
+    // 1. Direct / Clean Extraction First (fastest, zero cookie overhead, immune to "page reload required" cookie locks)
+    list.push(
+      {
+        name: "Direct Extraction (Default / VisionOS)",
+        args: [...directCommon],
+      },
+      {
+        name: "Direct Extraction (Android Client)",
+        args: [...directCommon, "--extractor-args", "youtube:player_client=android"],
+      },
+      {
+        name: "Direct Extraction (Web + MWeb Client)",
+        args: [...directCommon, "--extractor-args", "youtube:player_client=web,mweb"],
+      }
+    );
+
+    // 2. Authenticated Strategies (for age-restricted or private videos requiring login)
     if (hasCookies) {
       list.push(
         {
@@ -110,22 +126,6 @@ export const youtubeHandler = {
         }
       );
     }
-
-    // 2. Direct / Clean Extraction Fallbacks (essential when cookie session is locked, flagged, or requires reload)
-    list.push(
-      {
-        name: "Direct Extraction (Default / VisionOS)",
-        args: [...directCommon],
-      },
-      {
-        name: "Direct Extraction (Android Client)",
-        args: [...directCommon, "--extractor-args", "youtube:player_client=android"],
-      },
-      {
-        name: "Direct Extraction (Web + MWeb Client)",
-        args: [...directCommon, "--extractor-args", "youtube:player_client=web,mweb"],
-      }
-    );
 
     return list;
   },
@@ -297,6 +297,7 @@ export const youtubeHandler = {
 
     const ytdlpArgs = [
       ...activeStrategy.args,
+      "--ffmpeg-location", ffmpegPath,
       "-f", isAudio ? "bestaudio/best" : (formatSelector || "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"),
       "-o", "-",
       cleanUrl,

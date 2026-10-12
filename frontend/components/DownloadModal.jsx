@@ -190,6 +190,10 @@ export default function DownloadModal({ isOpen, format, targetDownloadUrl, video
         setSpeedMBs(currentSpeed);
       }
 
+      if (receivedBytes === 0) {
+        throw new Error("Stream closed before any data was received. Please try again.");
+      }
+
       setProgressPercent(100);
       const finalMB = (receivedBytes / (1024 * 1024)).toFixed(1);
       setLoadedMB(finalMB);
